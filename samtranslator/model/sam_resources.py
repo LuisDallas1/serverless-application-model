@@ -1142,62 +1142,19 @@ class SamFunction(SamResourceMacro):
 
         return auto_publish_resources, lambda_alias, alias_name
 
-    def _construct_version(  # noqa: PLR0912
+    def _build_version_logical_id(
         self,
         function: LambdaFunction,
         intrinsics_resolver: IntrinsicsResolver,
         resource_resolver: ResourceResolver,
+        code_dict: dict,
+        prefix: str,
         code_sha256: str | None = None,
-    ) -> LambdaVersion:
-        """Constructs a Lambda Version resource that will be auto-published when CodeUri of the function changes.
-        Old versions will not be deleted without a direct reference from the CloudFormation template.
-
-        :param model.lambda_.LambdaFunction function: Lambda function object that is being connected to a version
-        :param model.intrinsics.resolver.IntrinsicsResolver intrinsics_resolver: Class that can help resolve
-            references to parameters present in CodeUri. It is a common usecase to set S3Key of Code to be a
-            template parameter. Need to resolve the values otherwise we will never detect a change in Code dict
-        :param str code_sha256: User predefined hash of the Lambda function code
-        :return: Lambda function Version resource
-        """
-        code_dict = function.Code
-        if not code_dict:
-            raise ValueError("Lambda function code must be a valid non-empty dictionary")
-
-        if not intrinsics_resolver:
-            raise ValueError("intrinsics_resolver is required for versions creation")
-
-        # Resolve references to template parameters before creating hash. This will *not* resolve all intrinsics
-        # because we cannot resolve runtime values like Arn of a resource. For purposes of detecting changes, this
-        # is good enough. Here is why:
-        #
-        # When using intrinsic functions there are two cases when has must change:
-        #   - Value of the template parameter changes
-        #   - (or) LogicalId of a referenced resource changes ie. !GetAtt NewResource.Arn
-        #
-        # Later case will already change the hash because some value in the Code dictionary changes. We handle the
-        # first case by resolving references to template parameters. It is okay even if these references are
-        # present inside another intrinsic such as !Join. The resolver will replace the reference with the parameter's
-        # value and keep all other parts of !Join identical. This will still trigger a change in the hash.
-        code_dict = intrinsics_resolver.resolve_parameter_refs(code_dict)
-
-        # Construct the LogicalID of Lambda version by appending 10 characters of SHA of CodeUri. This is necessary
-        # to trigger creation of a new version every time code location changes. Since logicalId changes, CloudFormation
-        # will drop the old version and create a new one for us. We set a DeletionPolicy on the version resource to
-        # prevent CloudFormation from actually deleting the underlying version resource
-        #
-        # SHA Collisions: For purposes of triggering a new update, we are concerned about just the difference previous
-        #                 and next hashes. The chances that two subsequent hashes collide is fairly low.
-        prefix = f"{self.logical_id}Version"
-        logical_dict = {}
-        # We can't directly change AutoPublishAlias as that would be a breaking change, so we have to add this opt-in
-        # property that when set to true would change the lambda version whenever a property in the lambda function changes
+    ) -> str:
+        logical_dict: dict = {}
         if self.AutoPublishAliasAllProperties:
             properties = function._generate_resource_dict().get("Properties", {})
 
-            # When a Lambda LayerVersion resource is updated, a new Lambda layer is created.
-            # However, we need the Lambda function to automatically create a new version
-            # and use the new layer. By setting the `PublishLambdaVersion` property to true,
-            # a new Lambda function version will be created when the layer version is updated.
             if function.Layers:
                 for layer in function.Layers:
                     layer_logical_id = get_logical_id_from_intrinsic(layer)
@@ -1221,19 +1178,46 @@ class SamFunction(SamResourceMacro):
                 logical_dict.update(function.Environment)
             if function.MemorySize:
                 logical_dict.update({"MemorySize": function.MemorySize})
-            # If SnapStart is enabled we want to publish a new version, to have the corresponding snapshot
             if function.SnapStart and function.SnapStart.get("ApplyOn", "None") != "None":
                 logical_dict.update({"SnapStart": function.SnapStart})
-        logical_id = logical_id_generator.LogicalIdGenerator(prefix, logical_dict, code_sha256).gen()
 
-        attributes = self.get_passthrough_resource_attributes()
+        return logical_id_generator.LogicalIdGenerator(prefix, logical_dict, code_sha256).gen()
+
+    def _apply_version_deletion_policy(self, attributes: dict) -> None:
         if "DeletionPolicy" not in attributes:
             if self.VersionDeletionPolicy is not None:
-                # User explicitly specified VersionDeletionPolicy
                 attributes["DeletionPolicy"] = self.VersionDeletionPolicy
             else:
-                # Use smart default based on function type
                 attributes["DeletionPolicy"] = self._get_default_version_deletion_policy()
+
+    def _construct_version(
+        self,
+        function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        resource_resolver: ResourceResolver,
+        code_sha256: str | None = None,
+    ) -> LambdaVersion:
+        code_dict = function.Code
+        if not code_dict:
+            raise ValueError("Lambda function code must be a valid non-empty dictionary")
+
+        if not intrinsics_resolver:
+            raise ValueError("intrinsics_resolver is required for versions creation")
+
+        code_dict = intrinsics_resolver.resolve_parameter_refs(code_dict)
+
+        prefix = f"{self.logical_id}Version"
+        logical_id = self._build_version_logical_id(
+            function,
+            intrinsics_resolver,
+            resource_resolver,
+            code_dict,
+            prefix,
+            code_sha256,
+        )
+
+        attributes = self.get_passthrough_resource_attributes()
+        self._apply_version_deletion_policy(attributes)
 
         lambda_version = LambdaVersion(logical_id=logical_id, attributes=attributes)
         lambda_version.FunctionName = function.get_runtime_attr("name")
