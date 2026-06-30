@@ -72,11 +72,15 @@ class Translator:
             ArnGenerator.BOTO_SESSION_REGION_NAME = self.boto_session.region_name
 
     def _get_function_names(
-        self, resource_dict: dict[str, Any], intrinsics_resolver: IntrinsicsResolver
+        self,
+        resource_dict: dict[str, Any],
+        intrinsics_resolver: IntrinsicsResolver,
+        function_names: dict[Any, Any],
     ) -> dict[str, str]:
         """
         :param resource_dict: AWS::Serverless::Function resource is provided as input
         :param intrinsics_resolver: to resolve intrinsics for function_name
+        :param function_names: dictionary of function names keyed by api logical id
         :return: a dictionary containing api_logical_id as the key and concatenated String of all function_names
                  associated with this api as the value
         """
@@ -98,9 +102,9 @@ class Translator:
                     )
                     if not resolved_function_name:
                         continue
-                    self.function_names.setdefault(api_name, [])
-                    self.function_names[api_name].append(str(resolved_function_name))
-        return {api: "".join(names) for api, names in self.function_names.items()}
+                    function_names.setdefault(api_name, [])
+                    function_names[api_name].append(str(resolved_function_name))
+        return {api: "".join(names) for api, names in function_names.items()}
 
     def translate(  # noqa: PLR0912, PLR0915
         self,
@@ -127,8 +131,8 @@ class Translator:
         self.feature_toggle = feature_toggle or FeatureToggle(
             FeatureToggleDefaultConfigProvider(), stage=None, account_id=None, region=None
         )
-        self.function_names: dict[Any, Any] = {}
-        self.redeploy_restapi_parameters = {}
+        function_names: dict[Any, Any] = {}
+        redeploy_restapi_parameters = {}
         sam_parameter_values = SamParameterValues(parameter_values)
         sam_parameter_values.add_default_parameter_values(sam_template)
         sam_parameter_values.add_pseudo_parameter_values(self.boto_session)
@@ -178,10 +182,10 @@ class Translator:
                 kwargs["resource_resolver"] = resource_resolver
                 kwargs["original_template"] = sam_template
                 # add the value of FunctionName property if the function is referenced with the api resource
-                self.redeploy_restapi_parameters["function_names"] = self._get_function_names(
-                    resource_dict, intrinsics_resolver
+                redeploy_restapi_parameters["function_names"] = self._get_function_names(
+                    resource_dict, intrinsics_resolver, function_names
                 )
-                kwargs["redeploy_restapi_parameters"] = self.redeploy_restapi_parameters
+                kwargs["redeploy_restapi_parameters"] = redeploy_restapi_parameters
                 kwargs["shared_api_usage_plan"] = shared_api_usage_plan
                 kwargs["feature_toggle"] = self.feature_toggle
                 kwargs["route53_record_set_groups"] = route53_record_set_groups
