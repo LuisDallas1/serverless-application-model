@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from copy import deepcopy
 from typing import Any
 
@@ -21,32 +21,57 @@ from samtranslator.utils.cfn_dynamic_references import is_dynamic_reference
 
 
 @dataclass
-class StateMachineConfig:
-    logical_id: Any = None
-    depends_on: Any = None
-    managed_policy_map: Any = None
-    intrinsics_resolver: Any = None
+class DefinitionConfig:
     definition: Any = None
     definition_uri: Any = None
-    logging: Any = None
-    name: Any = None
-    policies: Any = None
-    permissions_boundary: Any = None
     definition_substitutions: Any = None
+
+
+@dataclass
+class RoleConfig:
     role: Any = None
     role_path: Any = None
-    state_machine_type: Any = None
-    tracing: Any = None
-    events: Any = None
-    event_resources: Any = None
-    event_resolver: Any = None
-    tags: Any = None
-    resource_attributes: Any = None
-    passthrough_resource_attributes: Any = None
+    policies: Any = None
+    permissions_boundary: Any = None
+    managed_policy_map: Any = None
     get_managed_policy_map: Any = None
+
+
+@dataclass
+class DeploymentConfig:
     auto_publish_alias: Any = None
     deployment_preference: Any = None
     use_alias_as_event_target: Any = None
+
+
+@dataclass
+class EventConfig:
+    events: Any = None
+    event_resources: Any = None
+    event_resolver: Any = None
+
+
+@dataclass
+class ObservabilityConfig:
+    logging: Any = None
+    tracing: Any = None
+
+
+@dataclass
+class StateMachineConfig:
+    logical_id: Any = None
+    depends_on: Any = None
+    name: Any = None
+    state_machine_type: Any = None
+    tags: Any = None
+    resource_attributes: Any = None
+    passthrough_resource_attributes: Any = None
+    intrinsics_resolver: Any = None
+    definition: DefinitionConfig = field(default_factory=DefinitionConfig)
+    role: RoleConfig = field(default_factory=RoleConfig)
+    deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
+    events: EventConfig = field(default_factory=EventConfig)
+    observability: ObservabilityConfig = field(default_factory=ObservabilityConfig)
 
 
 class StateMachineGenerator:
@@ -80,15 +105,15 @@ class StateMachineGenerator:
         """
         resources: list[Any] = [self.state_machine]
 
-        if self.config.definition_substitutions:
-            self.state_machine.DefinitionSubstitutions = self.config.definition_substitutions
+        if self.config.definition.definition_substitutions:
+            self.state_machine.DefinitionSubstitutions = self.config.definition.definition_substitutions
 
-        if self.config.definition and self.config.definition_uri:
+        if self.config.definition.definition and self.config.definition.definition_uri:
             raise InvalidResourceException(
                 self.config.logical_id, "Specify either 'Definition' or 'DefinitionUri' property and not both."
             )
-        if self.config.definition:
-            processed_definition = deepcopy(self.config.definition)
+        if self.config.definition.definition:
+            processed_definition = deepcopy(self.config.definition.definition)
             substitutions = self._replace_dynamic_values_with_substitutions(processed_definition)
             if len(substitutions) > 0:
                 if self.state_machine.DefinitionSubstitutions:
@@ -96,28 +121,28 @@ class StateMachineGenerator:
                 else:
                     self.state_machine.DefinitionSubstitutions = substitutions
             self.state_machine.DefinitionString = self._build_definition_string(processed_definition)
-        elif self.config.definition_uri:
+        elif self.config.definition.definition_uri:
             self.state_machine.DefinitionS3Location = self._construct_definition_uri()
         else:
             raise InvalidResourceException(
                 self.config.logical_id, "Either 'Definition' or 'DefinitionUri' property must be specified."
             )
 
-        if self.config.role and self.config.policies:
+        if self.config.role.role and self.config.role.policies:
             raise InvalidResourceException(self.config.logical_id, self.SFN_INVALID_PROPERTY_BOTH_ROLE_POLICY)
-        if self.config.role:
-            self.state_machine.RoleArn = self.config.role
+        if self.config.role.role:
+            self.state_machine.RoleArn = self.config.role.role
         else:
-            if not self.config.policies:
-                self.config.policies = []
+            if not self.config.role.policies:
+                self.config.role.policies = []
             execution_role = self._construct_role()
             self.state_machine.RoleArn = execution_role.get_runtime_attr("arn")
             resources.append(execution_role)
 
         self.state_machine.StateMachineName = self.config.name
         self.state_machine.StateMachineType = self.config.state_machine_type
-        self.state_machine.LoggingConfiguration = self.config.logging
-        self.state_machine.TracingConfiguration = self.config.tracing
+        self.state_machine.LoggingConfiguration = self.config.observability.logging
+        self.state_machine.TracingConfiguration = self.config.observability.tracing
         self.state_machine.Tags = self._construct_tag_list()
 
         managed_traffic_shifting_resources = self._generate_managed_traffic_shifting_resources()
@@ -129,14 +154,14 @@ class StateMachineGenerator:
         return resources
 
     def _construct_definition_uri(self) -> dict[str, Any]:
-        if isinstance(self.config.definition_uri, dict):
-            if not self.config.definition_uri.get("Bucket", None) or not self.config.definition_uri.get("Key", None):
+        if isinstance(self.config.definition.definition_uri, dict):
+            if not self.config.definition.definition_uri.get("Bucket", None) or not self.config.definition.definition_uri.get("Key", None):
                 raise InvalidResourceException(
                     self.config.logical_id, "'DefinitionUri' requires Bucket and Key properties to be specified."
                 )
-            s3_pointer = self.config.definition_uri
+            s3_pointer = self.config.definition.definition_uri
         else:
-            parsed_s3_pointer = parse_s3_uri(self.config.definition_uri)
+            parsed_s3_pointer = parse_s3_uri(self.config.definition.definition_uri)
             if parsed_s3_pointer is None:
                 raise InvalidResourceException(
                     self.config.logical_id,
@@ -155,8 +180,8 @@ class StateMachineGenerator:
         return fnJoin("\n", definition_lines)
 
     def _construct_role(self) -> IAMRole:
-        policies = self.config.policies[:]
-        if self.config.tracing and self.config.tracing.get("Enabled") is True:
+        policies = self.config.role.policies[:]
+        if self.config.observability.tracing and self.config.observability.tracing.get("Enabled") is True:
             policies.append(get_xray_managed_policy_name())
 
         state_machine_policies = ResourcePolicies(
@@ -166,14 +191,14 @@ class StateMachineGenerator:
 
         return construct_role_for_resource(
             resource_logical_id=self.config.logical_id,
-            role_path=self.config.role_path,
+            role_path=self.config.role.role_path,
             attributes=self.config.passthrough_resource_attributes,
-            managed_policy_map=self.config.managed_policy_map,
+            managed_policy_map=self.config.role.managed_policy_map,
             assume_role_policy_document=IAMRolePolicies.stepfunctions_assume_role_policy(),
             resource_policies=state_machine_policies,
             tags=self._construct_tag_list(),
-            permissions_boundary=self.config.permissions_boundary,
-            get_managed_policy_map=self.config.get_managed_policy_map,
+            permissions_boundary=self.config.role.permissions_boundary,
+            get_managed_policy_map=self.config.role.get_managed_policy_map,
         )
 
     def _construct_tag_list(self) -> list[dict[str, Any]]:
@@ -196,17 +221,17 @@ class StateMachineGenerator:
         return state_machine_version
 
     def _construct_alias(self, version: StepFunctionsStateMachineVersion) -> StepFunctionsStateMachineAlias:
-        logical_id = f"{self.config.logical_id}Alias{self.config.auto_publish_alias}"
+        logical_id = f"{self.config.logical_id}Alias{self.config.deployment.auto_publish_alias}"
         attributes = self.config.passthrough_resource_attributes
 
         state_machine_alias = StepFunctionsStateMachineAlias(logical_id=logical_id, attributes=attributes)
-        state_machine_alias.Name = self.config.auto_publish_alias
+        state_machine_alias.Name = self.config.deployment.auto_publish_alias
 
         state_machine_version_arn = version.get_runtime_attr("arn")
 
         deployment_preference = {}
-        if self.config.deployment_preference:
-            deployment_preference = self.config.deployment_preference
+        if self.config.deployment.deployment_preference:
+            deployment_preference = self.config.deployment.deployment_preference
         else:
             deployment_preference["Type"] = "ALL_AT_ONCE"
 
@@ -220,13 +245,13 @@ class StateMachineGenerator:
     def _generate_managed_traffic_shifting_resources(
         self,
     ) -> list[Any]:
-        if not self.config.auto_publish_alias and self.config.use_alias_as_event_target:
+        if not self.config.deployment.auto_publish_alias and self.config.deployment.use_alias_as_event_target:
             raise InvalidResourceException(
                 self.config.logical_id, "'UseAliasAsEventTarget' requires 'AutoPublishAlias' property to be specified."
             )
-        if not self.config.auto_publish_alias and not self.config.deployment_preference:
+        if not self.config.deployment.auto_publish_alias and not self.config.deployment.deployment_preference:
             return []
-        if not self.config.auto_publish_alias and self.config.deployment_preference:
+        if not self.config.deployment.auto_publish_alias and self.config.deployment.deployment_preference:
             raise InvalidResourceException(
                 self.config.logical_id, "'DeploymentPreference' requires 'AutoPublishAlias' property to be specified."
             )
@@ -236,23 +261,23 @@ class StateMachineGenerator:
 
     def _generate_event_resources(self) -> list[dict[str, Any]]:
         resources = []
-        if self.config.events:
-            for logical_id, event_dict in self.config.events.items():
+        if self.config.events.events:
+            for logical_id, event_dict in self.config.events.events.items():
                 kwargs = {
                     "intrinsics_resolver": self.config.intrinsics_resolver,
-                    "permissions_boundary": self.config.permissions_boundary,
+                    "permissions_boundary": self.config.role.permissions_boundary,
                 }
                 try:
-                    eventsource = self.config.event_resolver.resolve_resource_type(event_dict).from_dict(
+                    eventsource = self.config.events.event_resolver.resolve_resource_type(event_dict).from_dict(
                         self.state_machine.logical_id + logical_id, event_dict, logical_id
                     )
-                    for name, resource in self.config.event_resources[logical_id].items():
+                    for name, resource in self.config.events.event_resources[logical_id].items():
                         kwargs[name] = resource
                 except (TypeError, AttributeError) as e:
                     raise InvalidEventException(logical_id, str(e)) from e
                 target_resource = (
                     (self.state_machine_alias or self.state_machine)
-                    if self.config.use_alias_as_event_target
+                    if self.config.deployment.use_alias_as_event_target
                     else self.state_machine
                 )
                 resources += eventsource.to_cloudformation(resource=target_resource, **kwargs)
