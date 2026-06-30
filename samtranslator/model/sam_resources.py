@@ -70,7 +70,10 @@ from samtranslator.model.apigatewayv2 import (
     ApiGatewayV2Stage,
 )
 from samtranslator.model.architecture import ARM64, X86_64
-from samtranslator.model.capacity_provider.generators import CapacityProviderGenerator
+from samtranslator.model.capacity_provider.generators import (
+    CapacityProviderGenerator,
+    _CapacityProviderProperties,
+)
 from samtranslator.model.cfn_attributes.deletion_policy import DeletionPolicy
 from samtranslator.model.cloudformation import NestedStack
 from samtranslator.model.connector.connector import (
@@ -1591,8 +1594,7 @@ class SamCapacityProvider(SamResourceMacro):
             aws_serverless_capacity_provider.Properties, collect_all_errors=True
         )
 
-        capacity_provider_generator = CapacityProviderGenerator(
-            logical_id=self.logical_id,
+        capacity_provider_config = _CapacityProviderProperties(
             capacity_provider_name=passthrough_value(model.CapacityProviderName),
             vpc_config=model.VpcConfig.dict() if model.VpcConfig else None,
             operator_role=passthrough_value(model.OperatorRole),
@@ -1608,6 +1610,10 @@ class SamCapacityProvider(SamResourceMacro):
             depends_on=self.depends_on,
             resource_attributes=self.resource_attributes,
             passthrough_resource_attributes=self.get_passthrough_resource_attributes(),
+        )
+        capacity_provider_generator = CapacityProviderGenerator(
+            logical_id=self.logical_id,
+            config=capacity_provider_config,
         )
 
         resources = capacity_provider_generator.to_cloudformation()
