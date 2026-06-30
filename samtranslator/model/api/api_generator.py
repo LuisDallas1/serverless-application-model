@@ -284,7 +284,7 @@ class ApiGenerator:
         self.security_policy = security_policy
         self.endpoint_access_mode = endpoint_access_mode
 
-    def _construct_rest_api(self) -> ApiGatewayRestApi:  # noqa: PLR0912
+    def _construct_rest_api(self) -> ApiGatewayRestApi:
         """Constructs and returns the ApiGateway RestApi.
 
         :returns: the RestApi to which this SAM Api corresponds
@@ -324,6 +324,11 @@ class ApiGenerator:
             self.definition_body = self._openapi_postprocess(self.definition_body)
             rest_api.Body = self.definition_body
 
+        self._set_optional_properties(rest_api)
+
+        return rest_api
+
+    def _set_optional_properties(self, rest_api: ApiGatewayRestApi) -> None:
         if self.name:
             rest_api.Name = self.name
 
@@ -344,8 +349,6 @@ class ApiGenerator:
 
         if self.endpoint_access_mode:
             rest_api.EndpointAccessMode = self.endpoint_access_mode
-
-        return rest_api
 
     def _validate_properties(self) -> None:
         if self.definition_uri and self.definition_body:
@@ -484,9 +487,6 @@ class ApiGenerator:
     def _construct_api_domain(
         self, rest_api: ApiGatewayRestApi, route53_record_set_groups: Any
     ) -> ApiDomainResponse:
-        """
-        Constructs and returns the ApiGateway Domain and BasepathMapping
-        """
         if self.domain is None:
             return ApiDomainResponse(None, None, None)
 
@@ -502,6 +502,24 @@ class ApiGenerator:
             return ApiDomainResponse(domain, basepath_resource_list, separate_record_set)
 
         return ApiDomainResponse(domain, basepath_resource_list, record_set_group)
+
+    def _build_domain_name_object(self) -> tuple[str, ApiGatewayDomainName]:
+        sam_expect(self.domain, self.logical_id, "Domain").to_be_a_map()
+        domain_name: PassThrough = sam_expect(
+            self.domain.get("DomainName"), self.logical_id, "Domain.DomainName"
+        ).to_not_be_none()
+        certificate_arn: PassThrough = sam_expect(
+            self.domain.get("CertificateArn"), self.logical_id, "Domain.CertificateArn"
+        ).to_not_be_none()
+        api_domain_name = "{}{}".format("ApiGatewayDomainName", LogicalIdGenerator("", domain_name).gen())
+        self.domain["ApiDomainName"] = api_domain_name
+        domain = ApiGatewayDomainName(api_domain_name, attributes=self.passthrough_resource_attributes)
+        domain.DomainName = domain_name
+        self._configure_endpoint(domain, self.domain.get("EndpointConfiguration"), certificate_arn)
+        self._configure_ip_address_type(domain)
+        self._configure_mutual_tls_authentication(domain)
+        self._set_optional_domain_properties(domain)
+        return api_domain_name, domain
 
     def _handle_domain_route53(
         self,
@@ -539,22 +557,9 @@ class ApiGenerator:
         record_set_group.RecordSets += self._construct_record_sets_for_domain(self.domain, api_domain_name, route53)
         return record_set_group, None
 
-    def _build_domain_name_object(self) -> tuple[str, ApiGatewayDomainName]:
-        sam_expect(self.domain, self.logical_id, "Domain").to_be_a_map()
-        domain_name: PassThrough = sam_expect(
-            self.domain.get("DomainName"), self.logical_id, "Domain.DomainName"
-        ).to_not_be_none()
-        certificate_arn: PassThrough = sam_expect(
-            self.domain.get("CertificateArn"), self.logical_id, "Domain.CertificateArn"
-        ).to_not_be_none()
-
-        api_domain_name = "{}{}".format("ApiGatewayDomainName", LogicalIdGenerator("", domain_name).gen())
-        self.domain["ApiDomainName"] = api_domain_name
-
-        domain = ApiGatewayDomainName(api_domain_name, attributes=self.passthrough_resource_attributes)
-        domain.DomainName = domain_name
-        endpoint = self.domain.get("EndpointConfiguration")
-
+    def _configure_endpoint(
+        self, domain: ApiGatewayDomainName, endpoint: Any, certificate_arn: PassThrough
+    ) -> None:
         if endpoint is None:
             endpoint = "REGIONAL"
             self.domain["EndpointConfiguration"] = "REGIONAL"
@@ -564,42 +569,39 @@ class ApiGenerator:
                 "EndpointConfiguration for Custom Domains must be"
                 " one of {}.".format(["EDGE", "REGIONAL", "PRIVATE"]),
             )
-
         if endpoint == "REGIONAL":
             domain.RegionalCertificateArn = certificate_arn
         else:
             domain.CertificateArn = certificate_arn
-
         domain.EndpointConfiguration = {"Types": [endpoint]}
 
+    def _configure_ip_address_type(self, domain: ApiGatewayDomainName) -> None:
         ip_address_type = self.domain.get("IpAddressType")
         if ip_address_type:
             domain.EndpointConfiguration["IpAddressType"] = ip_address_type
 
+    def _configure_mutual_tls_authentication(self, domain: ApiGatewayDomainName) -> None:
         mutual_tls_auth = self.domain.get("MutualTlsAuthentication", None)
-        if mutual_tls_auth:
-            sam_expect(mutual_tls_auth, self.logical_id, "Domain.MutualTlsAuthentication").to_be_a_map()
-            if not set(mutual_tls_auth.keys()).issubset({"TruststoreUri", "TruststoreVersion"}):
-                invalid_keys = []
-                for key in mutual_tls_auth:
-                    if key not in {"TruststoreUri", "TruststoreVersion"}:
-                        invalid_keys.append(key)
-                invalid_keys.sort()
-                raise InvalidResourceException(
-                    self.logical_id,
-                    "Available Domain.MutualTlsAuthentication fields are {}.".format(
-                        ["TruststoreUri", "TruststoreVersion"]
-                    ),
-                )
-            domain.MutualTlsAuthentication = {}
-            if mutual_tls_auth.get("TruststoreUri", None):
-                domain.MutualTlsAuthentication["TruststoreUri"] = mutual_tls_auth["TruststoreUri"]
-            if mutual_tls_auth.get("TruststoreVersion", None):
-                domain.MutualTlsAuthentication["TruststoreVersion"] = mutual_tls_auth["TruststoreVersion"]
-
-        self._set_optional_domain_properties(domain)
-
-        return api_domain_name, domain
+        if not mutual_tls_auth:
+            return
+        sam_expect(mutual_tls_auth, self.logical_id, "Domain.MutualTlsAuthentication").to_be_a_map()
+        if not set(mutual_tls_auth.keys()).issubset({"TruststoreUri", "TruststoreVersion"}):
+            invalid_keys = []
+            for key in mutual_tls_auth:
+                if key not in {"TruststoreUri", "TruststoreVersion"}:
+                    invalid_keys.append(key)
+            invalid_keys.sort()
+            raise InvalidResourceException(
+                self.logical_id,
+                "Available Domain.MutualTlsAuthentication fields are {}.".format(
+                    ["TruststoreUri", "TruststoreVersion"]
+                ),
+            )
+        domain.MutualTlsAuthentication = {}
+        if mutual_tls_auth.get("TruststoreUri", None):
+            domain.MutualTlsAuthentication["TruststoreUri"] = mutual_tls_auth["TruststoreUri"]
+        if mutual_tls_auth.get("TruststoreVersion", None):
+            domain.MutualTlsAuthentication["TruststoreVersion"] = mutual_tls_auth["TruststoreVersion"]
 
     def _build_basepath_mappings(
         self,
@@ -608,7 +610,6 @@ class ApiGenerator:
         basepaths: list[str] | None,
     ) -> list[ApiGatewayBasePathMapping]:
         normalize_basepath = self.domain.get("NormalizeBasePath", True)
-
         basepath_resource_list: list[ApiGatewayBasePathMapping] = []
 
         if basepaths is None:
@@ -1119,90 +1120,95 @@ class ApiGenerator:
 
         self.definition_body = self._openapi_postprocess(swagger_editor.swagger)
 
-    def _construct_usage_plan(self, rest_api_stage: ApiGatewayStage | None = None) -> Any:  # noqa: PLR0912
-        """Constructs and returns the ApiGateway UsagePlan, ApiGateway UsagePlanKey, ApiGateway ApiKey for Auth.
+    def _construct_usage_plan(self, rest_api_stage: ApiGatewayStage | None = None) -> Any:
+        usage_plan_properties, create_usage_plan = self._validate_usage_plan_properties()
+        if create_usage_plan is None:
+            return []
+        if create_usage_plan == "NONE":
+            return []
+        if not rest_api_stage:
+            return []
 
-        :param model.apigateway.ApiGatewayStage stage: the stage of rest api
-        :returns: UsagePlan, UsagePlanKey, ApiKey for this rest Api
-        :rtype: model.apigateway.ApiGatewayUsagePlan, model.apigateway.ApiGatewayUsagePlanKey,
-                model.apigateway.ApiGatewayApiKey
-        """
+        if create_usage_plan == "PER_API":
+            usage_plan, api_key, usage_plan_key = self._construct_per_api_usage_plan(create_usage_plan, rest_api_stage)
+        else:
+            usage_plan, api_key, usage_plan_key = self._construct_shared_usage_plan(create_usage_plan, rest_api_stage)
+
+        self._set_usage_plan_properties(usage_plan, usage_plan_properties)
+        return usage_plan, api_key, usage_plan_key
+
+    def _validate_usage_plan_properties(self) -> tuple[Any, Any]:
         create_usage_plans_accepted_values = ["SHARED", "PER_API", "NONE"]
         if not self.auth:
-            return []
+            return None, None
         auth_properties = AuthProperties(**self.auth)
         if auth_properties.UsagePlan is None:
-            return []
+            return None, None
         usage_plan_properties = auth_properties.UsagePlan
-        # throws error if UsagePlan is not a dict
         if not isinstance(usage_plan_properties, dict):
             raise InvalidResourceException(self.logical_id, "'UsagePlan' must be a dictionary")
-        # throws error if the property invalid/ unsupported for UsagePlan
         if not all(key in UsagePlanProperties._fields for key in usage_plan_properties):
             raise InvalidResourceException(self.logical_id, "Invalid property for 'UsagePlan'")
-
         create_usage_plan = usage_plan_properties.get("CreateUsagePlan")
-        usage_plan: ApiGatewayUsagePlan | None = None
-        api_key = None
-        usage_plan_key = None
-
         if create_usage_plan is None:
             raise InvalidResourceException(self.logical_id, "'CreateUsagePlan' is a required field for UsagePlan.")
         if create_usage_plan not in create_usage_plans_accepted_values:
             raise InvalidResourceException(
                 self.logical_id, f"'CreateUsagePlan' accepts one of {create_usage_plans_accepted_values}."
             )
+        return usage_plan_properties, create_usage_plan
 
-        if create_usage_plan == "NONE":
-            return []
-        if not rest_api_stage:
-            return []
+    def _construct_per_api_usage_plan(
+        self, create_usage_plan: Any, rest_api_stage: ApiGatewayStage
+    ) -> tuple[ApiGatewayUsagePlan, ApiGatewayApiKey, ApiGatewayUsagePlanKey]:
+        usage_plan_logical_id = self.logical_id + "UsagePlan"
+        usage_plan = ApiGatewayUsagePlan(
+            logical_id=usage_plan_logical_id,
+            depends_on=[self.logical_id],
+            attributes=self.passthrough_resource_attributes,
+        )
+        api_stages = []
+        api_stage = {}
+        api_stage["ApiId"] = ref(self.logical_id)
+        api_stage["Stage"] = ref(rest_api_stage.logical_id)
+        api_stages.append(api_stage)
+        usage_plan.ApiStages = api_stages
 
-        # create usage plan for this api only
-        if usage_plan_properties.get("CreateUsagePlan") == "PER_API":
-            usage_plan_logical_id = self.logical_id + "UsagePlan"
-            usage_plan = ApiGatewayUsagePlan(
-                logical_id=usage_plan_logical_id,
-                depends_on=[self.logical_id],
-                attributes=self.passthrough_resource_attributes,
-            )
-            api_stages = []
-            api_stage = {}
-            api_stage["ApiId"] = ref(self.logical_id)
-            api_stage["Stage"] = ref(rest_api_stage.logical_id)
-            api_stages.append(api_stage)
-            usage_plan.ApiStages = api_stages
+        api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
+        usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
+        return usage_plan, api_key, usage_plan_key
 
-            api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
-            usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
+    def _construct_shared_usage_plan(
+        self, create_usage_plan: Any, rest_api_stage: ApiGatewayStage
+    ) -> tuple[ApiGatewayUsagePlan, ApiGatewayApiKey, ApiGatewayUsagePlanKey]:
+        LOG.info("Creating SHARED usage plan for all the Apis")
+        usage_plan_logical_id = "ServerlessUsagePlan"
+        if self.logical_id not in self.shared_api_usage_plan.depends_on_shared:
+            self.shared_api_usage_plan.depends_on_shared.append(self.logical_id)
+        usage_plan = ApiGatewayUsagePlan(
+            logical_id=usage_plan_logical_id,
+            depends_on=self.shared_api_usage_plan.depends_on_shared,
+            attributes=self.shared_api_usage_plan.get_combined_resource_attributes(
+                self.passthrough_resource_attributes, self.template_conditions
+            ),
+        )
+        api_stage = {}
+        api_stage["ApiId"] = ref(self.logical_id)
+        api_stage["Stage"] = ref(rest_api_stage.logical_id)
+        if api_stage not in self.shared_api_usage_plan.api_stages_shared:
+            self.shared_api_usage_plan.api_stages_shared.append(api_stage)
+        usage_plan.ApiStages = self.shared_api_usage_plan.api_stages_shared
 
-        # create a usage plan for all the Apis
-        elif create_usage_plan == "SHARED":
-            LOG.info("Creating SHARED usage plan for all the Apis")
-            usage_plan_logical_id = "ServerlessUsagePlan"
-            if self.logical_id not in self.shared_api_usage_plan.depends_on_shared:
-                self.shared_api_usage_plan.depends_on_shared.append(self.logical_id)
-            usage_plan = ApiGatewayUsagePlan(
-                logical_id=usage_plan_logical_id,
-                depends_on=self.shared_api_usage_plan.depends_on_shared,
-                attributes=self.shared_api_usage_plan.get_combined_resource_attributes(
-                    self.passthrough_resource_attributes, self.template_conditions
-                ),
-            )
-            api_stage = {}
-            api_stage["ApiId"] = ref(self.logical_id)
-            api_stage["Stage"] = ref(rest_api_stage.logical_id)
-            if api_stage not in self.shared_api_usage_plan.api_stages_shared:
-                self.shared_api_usage_plan.api_stages_shared.append(api_stage)
-            usage_plan.ApiStages = self.shared_api_usage_plan.api_stages_shared
+        api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
+        usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
+        return usage_plan, api_key, usage_plan_key
 
-            api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
-            usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
-
+    def _set_usage_plan_properties(
+        self, usage_plan: ApiGatewayUsagePlan | None, usage_plan_properties: Any
+    ) -> None:
         for name in ["UsagePlanName", "Description", "Quota", "Tags", "Throttle"]:
             if usage_plan and usage_plan_properties.get(name):
                 setattr(usage_plan, name, usage_plan_properties.get(name))
-        return usage_plan, api_key, usage_plan_key
 
     def _construct_api_key(
         self, usage_plan_logical_id: str, create_usage_plan: Any, rest_api_stage: ApiGatewayStage
@@ -1380,7 +1386,7 @@ class ApiGenerator:
 
         self.definition_body = self._openapi_postprocess(swagger_editor.swagger)
 
-    def _openapi_postprocess(self, definition_body: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
+    def _openapi_postprocess(self, definition_body: dict[str, Any]) -> dict[str, Any]:
         """
         Convert definitions to openapi 3 in definition body if OpenApiVersion flag is specified.
 
@@ -1390,84 +1396,99 @@ class ApiGenerator:
         if definition_body.get("swagger") is not None:
             return definition_body
 
-        if self.feature_toggle and self.feature_toggle.is_enabled(FEATURE_FLAG_NORMALIZED_OPENAPI_VERSION):
-            normalized_open_api_version = definition_body.get("openapi", self.open_api_version)
-        elif definition_body.get("openapi") is not None and self.open_api_version is None:
-            normalized_open_api_version = definition_body.get("openapi")
-        else:
-            normalized_open_api_version = self.open_api_version
+        normalized_open_api_version = self._normalize_openapi_version(definition_body)
 
         if normalized_open_api_version and SwaggerEditor.safe_compare_regex_with_string(
             SwaggerEditor._OPENAPI_VERSION_3_REGEX, normalized_open_api_version
         ):
-            if definition_body.get("securityDefinitions"):
-                components = definition_body.get("components", Py27Dict())
-                # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
-                # property is not in definition_body dict, but if it exist, and its value is None, so None will be
-                # returned and not the default value. That is why the below line is required.
-                components = components if components else Py27Dict()
-                components["securitySchemes"] = definition_body["securityDefinitions"]
-                definition_body["components"] = components
-                del definition_body["securityDefinitions"]
-            if definition_body.get("definitions"):
-                components = definition_body.get("components", Py27Dict())
-                # the following line to check if components is None
-                # is copied from the previous if...
-                # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
-                # property is not in definition_body dict, but if it exist, and its value is None, so None will be
-                # returned and not the default value. That is why the below line is required.
-                components = components if components else Py27Dict()
-                components["schemas"] = definition_body["definitions"]
-                definition_body["components"] = components
-                del definition_body["definitions"]
-            # removes `consumes` and `produces` options for CORS in openapi3 and
-            # adds `schema` for the headers in responses for openapi3
-            paths = definition_body.get("paths")
-            if paths:
-                SwaggerEditor.validate_is_dict(
-                    paths,
-                    "Value of paths must be a dictionary according to Swagger spec.",
-                )
-                for path, path_item in paths.items():
-                    SwaggerEditor.validate_path_item_is_dict(path_item, path)
-                    if path_item.get("options"):
-                        SwaggerEditor.validate_is_dict(
-                            path_item.get("options"),
-                            f"Value of options method for path {path} must be a "
-                            "dictionary according to Swagger spec.",
-                        )
-                        options = path_item.get("options").copy()
-                        for field, field_val in options.items():
-                            # remove unsupported produces and consumes in options for openapi3
-                            if field in ["produces", "consumes"]:
-                                del definition_body["paths"][path]["options"][field]
-                            # add schema for the headers in options section for openapi3
-                            if field in ["responses"]:
-                                try:
-                                    response_200_headers = dict_deep_get(field_val, "200.headers")
-                                except InvalidValueType as ex:
-                                    raise InvalidDocumentException(
-                                        [
-                                            InvalidTemplateException(
-                                                f"Invalid responses in options method for path {path}: {ex!s}.",
-                                            )
-                                        ]
-                                    ) from ex
-                                if not response_200_headers:
-                                    continue
-                                SwaggerEditor.validate_is_dict(
-                                    response_200_headers,
-                                    f"Value of response's headers in options method for path {path} must be a "
-                                    "dictionary according to Swagger spec.",
-                                )
-                                for header, header_val in response_200_headers.items():
-                                    new_header_val_with_schema = Py27Dict()
-                                    new_header_val_with_schema["schema"] = header_val
-                                    definition_body["paths"][path]["options"][field]["200"]["headers"][
-                                        header
-                                    ] = new_header_val_with_schema
+            self._migrate_security_definitions(definition_body)
+            self._migrate_definitions_to_schemas(definition_body)
+            self._process_openapi_paths(definition_body)
 
         return definition_body
+
+    def _normalize_openapi_version(self, definition_body: dict[str, Any]) -> Any:
+        if self.feature_toggle and self.feature_toggle.is_enabled(FEATURE_FLAG_NORMALIZED_OPENAPI_VERSION):
+            return definition_body.get("openapi", self.open_api_version)
+        if definition_body.get("openapi") is not None and self.open_api_version is None:
+            return definition_body.get("openapi")
+        return self.open_api_version
+
+    def _migrate_security_definitions(self, definition_body: dict[str, Any]) -> None:
+        if not definition_body.get("securityDefinitions"):
+            return
+        components = definition_body.get("components", Py27Dict())
+        # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
+        # property is not in definition_body dict, but if it exist, and its value is None, so None will be
+        # returned and not the default value. That is why the below line is required.
+        components = components if components else Py27Dict()
+        components["securitySchemes"] = definition_body["securityDefinitions"]
+        definition_body["components"] = components
+        del definition_body["securityDefinitions"]
+
+    def _migrate_definitions_to_schemas(self, definition_body: dict[str, Any]) -> None:
+        if not definition_body.get("definitions"):
+            return
+        components = definition_body.get("components", Py27Dict())
+        # the following line to check if components is None
+        # is copied from the previous if...
+        # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
+        # property is not in definition_body dict, but if it exist, and its value is None, so None will be
+        # returned and not the default value. That is why the below line is required.
+        components = components if components else Py27Dict()
+        components["schemas"] = definition_body["definitions"]
+        definition_body["components"] = components
+        del definition_body["definitions"]
+
+    def _process_openapi_paths(self, definition_body: dict[str, Any]) -> None:
+        # removes `consumes` and `produces` options for CORS in openapi3 and
+        # adds `schema` for the headers in responses for openapi3
+        paths = definition_body.get("paths")
+        if not paths:
+            return
+        SwaggerEditor.validate_is_dict(
+            paths,
+            "Value of paths must be a dictionary according to Swagger spec.",
+        )
+        for path, path_item in paths.items():
+            SwaggerEditor.validate_path_item_is_dict(path_item, path)
+            if not path_item.get("options"):
+                continue
+            SwaggerEditor.validate_is_dict(
+                path_item.get("options"),
+                f"Value of options method for path {path} must be a "
+                "dictionary according to Swagger spec.",
+            )
+            options = path_item.get("options").copy()
+            for field, field_val in options.items():
+                # remove unsupported produces and consumes in options for openapi3
+                if field in ["produces", "consumes"]:
+                    del definition_body["paths"][path]["options"][field]
+                # add schema for the headers in options section for openapi3
+                if field in ["responses"]:
+                    try:
+                        response_200_headers = dict_deep_get(field_val, "200.headers")
+                    except InvalidValueType as ex:
+                        raise InvalidDocumentException(
+                            [
+                                InvalidTemplateException(
+                                    f"Invalid responses in options method for path {path}: {ex!s}.",
+                                )
+                            ]
+                        ) from ex
+                    if not response_200_headers:
+                        continue
+                    SwaggerEditor.validate_is_dict(
+                        response_200_headers,
+                        f"Value of response's headers in options method for path {path} must be a "
+                        "dictionary according to Swagger spec.",
+                    )
+                    for header, header_val in response_200_headers.items():
+                        new_header_val_with_schema = Py27Dict()
+                        new_header_val_with_schema["schema"] = header_val
+                        definition_body["paths"][path]["options"][field]["200"]["headers"][
+                            header
+                        ] = new_header_val_with_schema
 
     def _get_authorizers(self, authorizers_config, default_authorizer=None):  # type: ignore[no-untyped-def]
         # The dict below will eventually become part of swagger/openapi definition, thus requires using Py27Dict()

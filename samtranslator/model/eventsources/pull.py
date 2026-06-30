@@ -112,6 +112,20 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         """
         return
 
+    def _build_destination_policy(self, destination_type: str, on_failure: dict[str, Any]) -> dict[str, Any] | None:
+        if destination_type == "SQS":
+            queue_arn = on_failure.get("Destination")
+            return IAMRolePolicies().sqs_send_message_role_policy(queue_arn, self.logical_id)
+        if destination_type == "SNS":
+            sns_topic_arn = on_failure.get("Destination")
+            return IAMRolePolicies().sns_publish_role_policy(sns_topic_arn, self.logical_id)
+        if destination_type == "S3":
+            s3_arn = on_failure.get("Destination")
+            return IAMRolePolicies().s3_send_event_payload_role_policy(s3_arn, self.logical_id)
+        if destination_type == "Kafka":
+            return None
+        return None
+
     @cw_timer(prefix=FUNCTION_EVETSOURCE_METRIC_PREFIX)
     def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def]
         """Returns the Lambda EventSourceMapping to which this pull event corresponds. Adds the appropriate managed

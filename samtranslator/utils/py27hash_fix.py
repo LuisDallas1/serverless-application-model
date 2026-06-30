@@ -20,7 +20,7 @@ unicode_string_type = str  # TODO: remove it, python 2 legacy code
 long_int_type = int  # TODO: remove it, python 2 legacy code
 
 
-def to_py27_compatible_template(  # noqa: PLR0912
+def to_py27_compatible_template(
     template: dict[str, Any], parameter_values: dict[str, Any] | None = None
 ) -> None:
     """
@@ -54,42 +54,8 @@ def to_py27_compatible_template(  # noqa: PLR0912
         # "Api" section under "Globals" could affect swagger generation for AWS::Serverless::Api resources
         template["Globals"]["Api"] = _convert_to_py27_type(template["Globals"]["Api"])  # type: ignore[no-untyped-call]
 
-    if "Parameters" in template and isinstance(template["Parameters"], dict):
-        new_parameters_dict = Py27Dict()
-        for logical_id, param_dict in template["Parameters"].items():
-            if isinstance(param_dict, dict) and "Default" in param_dict:
-                param_dict["Default"] = _convert_to_py27_type(param_dict["Default"])  # type: ignore[no-untyped-call]
-
-            # dict keys have to be Py27UniStr for correct serialization
-            new_parameters_dict[Py27UniStr(logical_id)] = param_dict
-        template["Parameters"] = new_parameters_dict
-
-    if "Resources" in template and isinstance(template["Resources"], dict):
-        new_resources_dict = Py27Dict()
-        for logical_id, resource_dict in template["Resources"].items():
-            if isinstance(resource_dict, dict):
-                resource_type = resource_dict.get("Type")
-                resource_properties = resource_dict.get("Properties")
-                if resource_properties is not None:
-                    # We only convert for AWS::Serverless::Api resource
-                    if resource_type in [
-                        "AWS::Serverless::Api",
-                        "AWS::Serverless::HttpApi",
-                    ]:
-                        resource_dict["Properties"] = _convert_to_py27_type(resource_properties)  # type: ignore[no-untyped-call]
-                    elif resource_type in ["AWS::Serverless::Function", "AWS::Serverless::StateMachine"]:
-                        # properties below could affect swagger generation
-                        if "Condition" in resource_dict:
-                            resource_dict["Condition"] = _convert_to_py27_type(resource_dict["Condition"])  # type: ignore[no-untyped-call]
-                        if "FunctionName" in resource_properties:
-                            resource_properties["FunctionName"] = _convert_to_py27_type(  # type: ignore[no-untyped-call]
-                                resource_properties["FunctionName"]
-                            )
-                        if "Events" in resource_properties:
-                            resource_properties["Events"] = _convert_to_py27_type(resource_properties["Events"])  # type: ignore[no-untyped-call]
-
-            new_resources_dict[Py27UniStr(logical_id)] = resource_dict
-        template["Resources"] = new_resources_dict
+    _convert_parameters(template)
+    _convert_resources(template)
 
     if parameter_values:
         for key, val in parameter_values.items():
@@ -577,6 +543,47 @@ class Py27Dict(dict):  # type: ignore[type-arg]
         if key not in self:
             self[key] = default
         return self[key]
+
+
+def _convert_parameters(template: dict[str, Any]) -> None:
+    if "Parameters" in template and isinstance(template["Parameters"], dict):
+        new_parameters_dict = Py27Dict()
+        for logical_id, param_dict in template["Parameters"].items():
+            if isinstance(param_dict, dict) and "Default" in param_dict:
+                param_dict["Default"] = _convert_to_py27_type(param_dict["Default"])  # type: ignore[no-untyped-call]
+
+            new_parameters_dict[Py27UniStr(logical_id)] = param_dict
+        template["Parameters"] = new_parameters_dict
+
+
+def _convert_resources(template: dict[str, Any]) -> None:
+    if "Resources" in template and isinstance(template["Resources"], dict):
+        new_resources_dict = Py27Dict()
+        for logical_id, resource_dict in template["Resources"].items():
+            if isinstance(resource_dict, dict):
+                _convert_resource_properties(resource_dict)
+            new_resources_dict[Py27UniStr(logical_id)] = resource_dict
+        template["Resources"] = new_resources_dict
+
+
+def _convert_resource_properties(resource_dict: dict[str, Any]) -> None:
+    resource_type = resource_dict.get("Type")
+    resource_properties = resource_dict.get("Properties")
+    if resource_properties is not None:
+        if resource_type in [
+            "AWS::Serverless::Api",
+            "AWS::Serverless::HttpApi",
+        ]:
+            resource_dict["Properties"] = _convert_to_py27_type(resource_properties)  # type: ignore[no-untyped-call]
+        elif resource_type in ["AWS::Serverless::Function", "AWS::Serverless::StateMachine"]:
+            if "Condition" in resource_dict:
+                resource_dict["Condition"] = _convert_to_py27_type(resource_dict["Condition"])  # type: ignore[no-untyped-call]
+            if "FunctionName" in resource_properties:
+                resource_properties["FunctionName"] = _convert_to_py27_type(  # type: ignore[no-untyped-call]
+                    resource_properties["FunctionName"]
+                )
+            if "Events" in resource_properties:
+                resource_properties["Events"] = _convert_to_py27_type(resource_properties["Events"])  # type: ignore[no-untyped-call]
 
 
 def _convert_to_py27_type(original):  # type: ignore[no-untyped-def]

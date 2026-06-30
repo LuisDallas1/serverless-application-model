@@ -61,9 +61,6 @@ class ApiV2Generator:
         list[ApiGatewayV2ApiMapping] | None,
         Route53RecordSetGroup | None,
     ]:
-        """
-        Constructs and returns the ApiGateway Domain and BasepathMapping
-        """
         if self.domain is None:
             return None, None, None
 
@@ -87,12 +84,13 @@ class ApiV2Generator:
 
         domain_name_config: dict[str, Any] = {}
 
+
         certificate_arn = custom_domain_config.get("CertificateArn")
+
         if domain_name is None or certificate_arn is None:
             raise InvalidResourceException(
                 self.logical_id, "Custom Domains only works if both DomainName and CertificateArn are provided."
             )
-        domain_name_config["CertificateArn"] = certificate_arn
 
         api_domain_name = "{}{}".format("ApiGatewayDomainNameV2", LogicalIdGenerator("", domain_name).gen())
         custom_domain_config["ApiDomainName"] = api_domain_name
@@ -105,6 +103,7 @@ class ApiV2Generator:
         if self.default_tag_name != "":
             domain.Tags = {self.default_tag_name: "SAM"}
         return domain
+
 
     def _configure_endpoint_configuration(
         self, custom_domain_config: dict[str, Any], domain_name_config: dict[str, Any]

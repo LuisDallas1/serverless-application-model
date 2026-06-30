@@ -184,22 +184,8 @@ class Translator:
 
         self._handle_deployment_preferences(template, deployment_preference_collection)
 
-        # Run the after-transform plugin target
-        try:
-            sam_plugins.act(LifeCycleEvents.after_transform_template, template)
-        except (InvalidDocumentException, InvalidResourceException, InvalidTemplateException) as e:
-            self.document_errors.append(e)
-
-        # Cleanup
-        if "Transform" in template:
-            del template["Transform"]
-
-        if len(self.document_errors) == 0:
-            resolveDependsOn = ResolveDependsOn(resolution_data=changed_logical_ids)  # Initializes ResolveDependsOn
-            template = traverse(template, [resolveDependsOn])
-            template = intrinsics_resolver.resolve_sam_resource_id_refs(template, changed_logical_ids)
-            return intrinsics_resolver.resolve_sam_resource_refs(template, supported_resource_refs)
-        raise InvalidDocumentException(self.document_errors)
+        self._run_after_transform_plugins(sam_plugins, template)
+        return self._finalize_template(template, intrinsics_resolver, changed_logical_ids, supported_resource_refs)
 
     def _process_single_resource(
         self,
@@ -288,6 +274,30 @@ class Translator:
                     )
                 except InvalidResourceException as e:
                     self.document_errors.append(e)
+
+    def _run_after_transform_plugins(
+        self, sam_plugins: SamPlugins, template: dict[str, Any]
+    ) -> None:
+        try:
+            sam_plugins.act(LifeCycleEvents.after_transform_template, template)
+        except (InvalidDocumentException, InvalidResourceException, InvalidTemplateException) as e:
+            self.document_errors.append(e)
+
+    def _finalize_template(
+        self,
+        template: dict[str, Any],
+        intrinsics_resolver: IntrinsicsResolver,
+        changed_logical_ids: dict[str, str],
+        supported_resource_refs: SupportedResourceReferences,
+    ) -> dict[str, Any]:
+        template.pop("Transform", None)
+
+        if len(self.document_errors) == 0:
+            resolveDependsOn = ResolveDependsOn(resolution_data=changed_logical_ids)
+            template = traverse(template, [resolveDependsOn])
+            template = intrinsics_resolver.resolve_sam_resource_id_refs(template, changed_logical_ids)
+            return intrinsics_resolver.resolve_sam_resource_refs(template, supported_resource_refs)
+        raise InvalidDocumentException(self.document_errors)
 
     # private methods
     def _get_resources_to_iterate(
