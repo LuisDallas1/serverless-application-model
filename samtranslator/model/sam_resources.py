@@ -127,7 +127,14 @@ from samtranslator.model.role_utils import construct_role_for_resource
 from samtranslator.model.sns import SNSTopic, SNSTopicPolicy
 from samtranslator.model.sqs import SQSQueue, SQSQueuePolicy
 from samtranslator.model.stepfunctions import StateMachineGenerator
-from samtranslator.model.stepfunctions.generators import StateMachineConfig
+from samtranslator.model.stepfunctions.generators import (
+    DefinitionConfig,
+    DeploymentConfig,
+    EventConfig,
+    ObservabilityConfig,
+    RoleConfig,
+    StateMachineConfig,
+)
 from samtranslator.model.types import (
     IS_BOOL,
     IS_DICT,
@@ -2399,29 +2406,39 @@ class SamStateMachine(SamResourceMacro):
         state_machine_generator = StateMachineGenerator(StateMachineConfig(
             logical_id=self.logical_id,
             depends_on=self.depends_on,
-            managed_policy_map=managed_policy_map,
             intrinsics_resolver=intrinsics_resolver,
-            definition=self.Definition,
-            definition_uri=self.DefinitionUri,
-            logging=self.Logging,
             name=self.Name,
-            policies=self.Policies,
-            permissions_boundary=self.PermissionsBoundary,
-            definition_substitutions=self.DefinitionSubstitutions,
-            role=self.Role,
-            role_path=self.RolePath,
             state_machine_type=self.Type,
-            tracing=self.Tracing,
-            events=self.Events,
-            event_resources=event_resources,
-            event_resolver=self.event_resolver,
             tags=self.Tags,
             resource_attributes=self.resource_attributes,
             passthrough_resource_attributes=self.get_passthrough_resource_attributes(),
-            get_managed_policy_map=get_managed_policy_map,
-            auto_publish_alias=self.AutoPublishAlias,
-            deployment_preference=self.DeploymentPreference,
-            use_alias_as_event_target=self.UseAliasAsEventTarget,
+            definition=DefinitionConfig(
+                definition=self.Definition,
+                definition_uri=self.DefinitionUri,
+                definition_substitutions=self.DefinitionSubstitutions,
+            ),
+            role=RoleConfig(
+                role=self.Role,
+                role_path=self.RolePath,
+                policies=self.Policies,
+                permissions_boundary=self.PermissionsBoundary,
+                managed_policy_map=managed_policy_map,
+                get_managed_policy_map=get_managed_policy_map,
+            ),
+            deployment=DeploymentConfig(
+                auto_publish_alias=self.AutoPublishAlias,
+                deployment_preference=self.DeploymentPreference,
+                use_alias_as_event_target=self.UseAliasAsEventTarget,
+            ),
+            events=EventConfig(
+                events=self.Events,
+                event_resources=event_resources,
+                event_resolver=self.event_resolver,
+            ),
+            observability=ObservabilityConfig(
+                logging=self.Logging,
+                tracing=self.Tracing,
+            ),
         ))
 
         generated_resources = state_machine_generator.to_cloudformation()
