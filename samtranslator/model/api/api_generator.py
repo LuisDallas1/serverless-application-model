@@ -1506,10 +1506,10 @@ class ApiGenerator:
 
         for authorizer_name, authorizer in authorizers.items():
             # Construct permissions for Lambda Authorizers only
-            if not authorizer.function_arn or authorizer.disable_function_default_permissions:
+            if not authorizer.function_config.function_arn or authorizer.function_config.disable_function_default_permissions:
                 continue
 
-            permission = self._get_permission(authorizer_name, authorizer.function_arn)  # type: ignore[no-untyped-call]
+            permission = self._get_permission(authorizer_name, authorizer.function_config.function_arn)  # type: ignore[no-untyped-call]
             permissions.append(permission)
 
         return permissions
