@@ -1,6 +1,6 @@
 import logging
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Union, cast
 
 from samtranslator.feature_toggle.feature_toggle import FeatureToggle
@@ -90,6 +90,14 @@ class ApiDomainResponseV2:
     domain_access_association: Any
 
 
+@dataclass
+class _CombinedResourceAttributes:
+    conditions: set[str] = field(default_factory=set)
+    any_api_without_condition: bool = False
+    deletion_policy: str | None = None
+    update_replace_policy: str | None = None
+
+
 class SharedApiUsagePlan:
     """
     Collects API information from different API resources in the same template,
@@ -105,10 +113,7 @@ class SharedApiUsagePlan:
         self.depends_on_shared: list[str] = []
 
         # shared resource level attributes
-        self.conditions: set[str] = set()
-        self.any_api_without_condition = False
-        self.deletion_policy: str | None = None
-        self.update_replace_policy: str | None = None
+        self.resource_attrs = _CombinedResourceAttributes()
 
     def get_combined_resource_attributes(self, resource_attributes, conditions):  # type: ignore[no-untyped-def]
         """
@@ -127,59 +132,119 @@ class SharedApiUsagePlan:
         self._set_condition(resource_attributes.get("Condition"), conditions)  # type: ignore[no-untyped-call]
 
         combined_resource_attributes = {}
-        if self.deletion_policy:
-            combined_resource_attributes["DeletionPolicy"] = self.deletion_policy
-        if self.update_replace_policy:
-            combined_resource_attributes["UpdateReplacePolicy"] = self.update_replace_policy
+        if self.resource_attrs.deletion_policy:
+            combined_resource_attributes["DeletionPolicy"] = self.resource_attrs.deletion_policy
+        if self.resource_attrs.update_replace_policy:
+            combined_resource_attributes["UpdateReplacePolicy"] = self.resource_attrs.update_replace_policy
         # do not set Condition if any of the API resource does not have Condition in it
-        if self.conditions and not self.any_api_without_condition:
+        if self.resource_attrs.conditions and not self.resource_attrs.any_api_without_condition:
             combined_resource_attributes["Condition"] = SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME
 
         return combined_resource_attributes
 
     def _set_deletion_policy(self, deletion_policy):  # type: ignore[no-untyped-def]
         if deletion_policy:
-            if self.deletion_policy:
+            if self.resource_attrs.deletion_policy:
                 # update only if new deletion policy is Retain
                 if deletion_policy == "Retain":
-                    self.deletion_policy = deletion_policy
+                    self.resource_attrs.deletion_policy = deletion_policy
             else:
-                self.deletion_policy = deletion_policy
+                self.resource_attrs.deletion_policy = deletion_policy
 
     def _set_update_replace_policy(self, update_replace_policy):  # type: ignore[no-untyped-def]
         if update_replace_policy:
-            if self.update_replace_policy:
+            if self.resource_attrs.update_replace_policy:
                 # if new value is Retain or
                 # new value is retain and current value is Delete then update its value
                 if (update_replace_policy == "Retain") or (
-                    update_replace_policy == "Snapshot" and self.update_replace_policy == "Delete"
+                    update_replace_policy == "Snapshot" and self.resource_attrs.update_replace_policy == "Delete"
                 ):
-                    self.update_replace_policy = update_replace_policy
+                    self.resource_attrs.update_replace_policy = update_replace_policy
             else:
-                self.update_replace_policy = update_replace_policy
+                self.resource_attrs.update_replace_policy = update_replace_policy
 
     def _set_condition(self, condition, template_conditions):  # type: ignore[no-untyped-def]
         # if there are any API without condition, then skip
-        if self.any_api_without_condition:
+        if self.resource_attrs.any_api_without_condition:
             return
 
-        if condition and condition not in self.conditions:
+        if condition and condition not in self.resource_attrs.conditions:
             if template_conditions is None:
                 raise InvalidTemplateException(
                     "Can't have condition without having 'Conditions' section in the template"
                 )
 
-            if self.conditions:
-                self.conditions.add(condition)
-                or_condition = make_or_condition(self.conditions)
+            if self.resource_attrs.conditions:
+                self.resource_attrs.conditions.add(condition)
+                or_condition = make_or_condition(self.resource_attrs.conditions)
                 template_conditions[SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME] = or_condition
             else:
-                self.conditions.add(condition)
+                self.resource_attrs.conditions.add(condition)
                 template_conditions[SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME] = condition
         elif condition is None:
-            self.any_api_without_condition = True
+            self.resource_attrs.any_api_without_condition = True
             if template_conditions and SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME in template_conditions:
                 del template_conditions[SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME]
+
+
+@dataclass
+class _RestApiProperties:  # pylint: disable=too-many-instance-attributes
+    name: Intrinsicable[str] | None
+    description: Intrinsicable[str] | None
+    mode: Intrinsicable[str] | None
+    api_key_source_type: Intrinsicable[str] | None
+    endpoint_configuration: dict[str, Any] | None
+    endpoint_access_mode: Intrinsicable[str] | None
+    policy: Union[dict[str, Any], Intrinsicable[str]] | None
+    security_policy: Intrinsicable[str] | None
+    always_deploy: bool | None
+    feature_toggle: FeatureToggle | None
+    minimum_compression_size: Intrinsicable[int] | None
+
+
+@dataclass
+class _OpenApiProperties:  # pylint: disable=too-many-instance-attributes
+    definition_body: dict[str, Any] | None
+    definition_uri: Intrinsicable[str] | None
+    merge_definitions: bool | None
+    open_api_version: Intrinsicable[str] | None
+    fail_on_warnings: Intrinsicable[bool] | None
+    binary_media: list[Any] | None
+    models: dict[str, Any] | None
+    disable_execute_api_endpoint: Intrinsicable[bool] | None
+    cors: Intrinsicable[str] | None
+    auth: dict[str, Any] | None
+    gateway_responses: dict[str, Any] | None
+
+    @property
+    def remove_extra_stage(self) -> Intrinsicable[str] | None:
+        return self.open_api_version
+
+
+@dataclass
+class _StageProperties:  # pylint: disable=too-many-instance-attributes
+    stage_name: Intrinsicable[str] | None
+    cache_cluster_enabled: Intrinsicable[bool] | None
+    cache_cluster_size: Intrinsicable[str] | None
+    variables: dict[str, Any] | None
+    depends_on: list[str] | None
+    method_settings: list[Any] | None
+    access_log_setting: dict[str, Any] | None
+    canary_setting: dict[str, Any] | None
+    tracing_enabled: Intrinsicable[bool] | None
+    tags: dict[str, Any] | None
+
+
+@dataclass
+class _ResourceAttributeProperties:
+    resource_attributes: dict[str, Any] | None
+    passthrough_resource_attributes: dict[str, Any] | None
+
+
+@dataclass
+class _SharedProperties:
+    shared_api_usage_plan: Any
+    template_conditions: Any
 
 
 class ApiGenerator:
@@ -245,44 +310,61 @@ class ApiGenerator:
         :param description: Description of the API Gateway resource
         """
         self.logical_id = logical_id
-        self.cache_cluster_enabled = cache_cluster_enabled
-        self.cache_cluster_size = cache_cluster_size
-        self.variables = variables
-        self.depends_on = depends_on
-        self.definition_body = definition_body
-        self.definition_uri = definition_uri
-        self.merge_definitions = merge_definitions
-        self.name = name
-        self.stage_name = stage_name
-        self.tags = tags
-        self.endpoint_configuration = endpoint_configuration
-        self.method_settings = method_settings
-        self.binary_media = binary_media
-        self.minimum_compression_size = minimum_compression_size
-        self.disable_execute_api_endpoint = disable_execute_api_endpoint
-        self.cors = cors
-        self.auth = auth
-        self.gateway_responses = gateway_responses
-        self.access_log_setting = access_log_setting
-        self.canary_setting = canary_setting
-        self.tracing_enabled = tracing_enabled
-        self.resource_attributes = resource_attributes
-        self.passthrough_resource_attributes = passthrough_resource_attributes
-        self.open_api_version = open_api_version
-        self.remove_extra_stage = open_api_version
-        self.models = models
         self.domain = domain
-        self.fail_on_warnings = fail_on_warnings
-        self.description = description
-        self.shared_api_usage_plan = shared_api_usage_plan
-        self.template_conditions = template_conditions
-        self.mode = mode
-        self.api_key_source_type = api_key_source_type
-        self.always_deploy = always_deploy
-        self.feature_toggle = feature_toggle
-        self.policy = policy
-        self.security_policy = security_policy
-        self.endpoint_access_mode = endpoint_access_mode
+        self.rest_api = _RestApiProperties(
+            name=name,
+            description=description,
+            mode=mode,
+            api_key_source_type=api_key_source_type,
+            endpoint_configuration=endpoint_configuration,
+            endpoint_access_mode=endpoint_access_mode,
+            policy=policy,
+            security_policy=security_policy,
+            always_deploy=always_deploy,
+            feature_toggle=feature_toggle,
+            minimum_compression_size=minimum_compression_size,
+        )
+        self.open_api = _OpenApiProperties(
+            definition_body=definition_body,
+            definition_uri=definition_uri,
+            merge_definitions=merge_definitions,
+            open_api_version=open_api_version,
+            fail_on_warnings=fail_on_warnings,
+            binary_media=binary_media,
+            models=models,
+            disable_execute_api_endpoint=disable_execute_api_endpoint,
+            cors=cors,
+            auth=auth,
+            gateway_responses=gateway_responses,
+        )
+        self.stage = _StageProperties(
+            stage_name=stage_name,
+            cache_cluster_enabled=cache_cluster_enabled,
+            cache_cluster_size=cache_cluster_size,
+            variables=variables,
+            depends_on=depends_on,
+            method_settings=method_settings,
+            access_log_setting=access_log_setting,
+            canary_setting=canary_setting,
+            tracing_enabled=tracing_enabled,
+            tags=tags,
+        )
+        self.resource_attrs = _ResourceAttributeProperties(
+            resource_attributes=resource_attributes,
+            passthrough_resource_attributes=passthrough_resource_attributes,
+        )
+        self.shared = _SharedProperties(
+            shared_api_usage_plan=shared_api_usage_plan,
+            template_conditions=template_conditions,
+        )
+
+    @property
+    def definition_body(self) -> dict[str, Any] | None:
+        return self.open_api.definition_body
+
+    @definition_body.setter
+    def definition_body(self, value: dict[str, Any] | None) -> None:
+        self.open_api.definition_body = value
 
     def _construct_rest_api(self) -> ApiGatewayRestApi:
         """Constructs and returns the ApiGateway RestApi.
@@ -291,14 +373,14 @@ class ApiGenerator:
         :rtype: model.apigateway.ApiGatewayRestApi
         """
         self._validate_properties()
-        rest_api = ApiGatewayRestApi(self.logical_id, depends_on=self.depends_on, attributes=self.resource_attributes)
+        rest_api = ApiGatewayRestApi(self.logical_id, depends_on=self.stage.depends_on, attributes=self.resource_attrs.resource_attributes)
         # NOTE: For backwards compatibility we need to retain BinaryMediaTypes on the CloudFormation Property
         # Removing this and only setting x-amazon-apigateway-binary-media-types results in other issues.
-        rest_api.BinaryMediaTypes = self.binary_media
-        rest_api.MinimumCompressionSize = self.minimum_compression_size
+        rest_api.BinaryMediaTypes = self.open_api.binary_media
+        rest_api.MinimumCompressionSize = self.rest_api.minimum_compression_size
 
-        if self.endpoint_configuration:
-            self._set_endpoint_configuration(rest_api, self.endpoint_configuration)
+        if self.rest_api.endpoint_configuration:
+            self._set_endpoint_configuration(rest_api, self.rest_api.endpoint_configuration)
 
         elif not RegionConfiguration.is_apigw_edge_configuration_supported():
             # Since this region does not support EDGE configuration, we explicitly set the endpoint type
@@ -311,58 +393,58 @@ class ApiGenerator:
         self._add_binary_media_types()
         self._add_models()
 
-        if self.fail_on_warnings:
-            rest_api.FailOnWarnings = self.fail_on_warnings
+        if self.open_api.fail_on_warnings:
+            rest_api.FailOnWarnings = self.open_api.fail_on_warnings
 
-        if self.disable_execute_api_endpoint is not None:
+        if self.open_api.disable_execute_api_endpoint is not None:
             self._add_endpoint_extension()
 
-        if self.definition_uri:
+        if self.open_api.definition_uri:
             rest_api.BodyS3Location = self._construct_body_s3_dict()
-        elif self.definition_body:
+        elif self.open_api.definition_body:
             # # Post Process OpenApi Auth Settings
-            self.definition_body = self._openapi_postprocess(self.definition_body)
-            rest_api.Body = self.definition_body
+            self.open_api.definition_body = self._openapi_postprocess(self.open_api.definition_body)
+            rest_api.Body = self.open_api.definition_body
 
         self._set_optional_properties(rest_api)
 
         return rest_api
 
     def _set_optional_properties(self, rest_api: ApiGatewayRestApi) -> None:
-        if self.name:
-            rest_api.Name = self.name
+        if self.rest_api.name:
+            rest_api.Name = self.rest_api.name
 
-        if self.description:
-            rest_api.Description = self.description
+        if self.rest_api.description:
+            rest_api.Description = self.rest_api.description
 
-        if self.mode:
-            rest_api.Mode = self.mode
+        if self.rest_api.mode:
+            rest_api.Mode = self.rest_api.mode
 
-        if self.api_key_source_type:
-            rest_api.ApiKeySourceType = self.api_key_source_type
+        if self.rest_api.api_key_source_type:
+            rest_api.ApiKeySourceType = self.rest_api.api_key_source_type
 
-        if self.policy:
-            rest_api.Policy = self.policy
+        if self.rest_api.policy:
+            rest_api.Policy = self.rest_api.policy
 
-        if self.security_policy:
-            rest_api.SecurityPolicy = self.security_policy
+        if self.rest_api.security_policy:
+            rest_api.SecurityPolicy = self.rest_api.security_policy
 
-        if self.endpoint_access_mode:
-            rest_api.EndpointAccessMode = self.endpoint_access_mode
+        if self.rest_api.endpoint_access_mode:
+            rest_api.EndpointAccessMode = self.rest_api.endpoint_access_mode
 
     def _validate_properties(self) -> None:
-        if self.definition_uri and self.definition_body:
+        if self.open_api.definition_uri and self.open_api.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Specify either 'DefinitionUri' or 'DefinitionBody' property and not both."
             )
 
-        if self.definition_uri and self.merge_definitions:
+        if self.open_api.definition_uri and self.open_api.merge_definitions:
             raise InvalidResourceException(
                 self.logical_id, "Cannot set 'MergeDefinitions' to True when using `DefinitionUri`."
             )
 
-        if self.open_api_version and not SwaggerEditor.safe_compare_regex_with_string(
-            SwaggerEditor.get_openapi_versions_supported_regex(), self.open_api_version
+        if self.open_api.open_api_version and not SwaggerEditor.safe_compare_regex_with_string(
+            SwaggerEditor.get_openapi_versions_supported_regex(), self.open_api.open_api_version
         ):
             raise InvalidResourceException(self.logical_id, "The OpenApiVersion value must be of the format '3.0.0'.")
 
@@ -374,13 +456,13 @@ class ApiGenerator:
         https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-api.html#sam-api-definitionbody
         For this reason, we always put DisableExecuteApiEndpoint into openapi object irrespective of origin of DefinitionBody.
         """
-        if self.disable_execute_api_endpoint is not None and not self.definition_body:
+        if self.open_api.disable_execute_api_endpoint is not None and not self.open_api.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "DisableExecuteApiEndpoint works only within 'DefinitionBody' property."
             )
-        editor = SwaggerEditor(self.definition_body)
-        editor.add_disable_execute_api_endpoint_extension(self.disable_execute_api_endpoint)
-        self.definition_body = editor.swagger
+        editor = SwaggerEditor(self.open_api.definition_body)
+        editor.add_disable_execute_api_endpoint_extension(self.open_api.disable_execute_api_endpoint)
+        self.open_api.definition_body = editor.swagger
 
     def _construct_body_s3_dict(self) -> dict[str, Any]:
         """Constructs the RestApi's `BodyS3Location property`_, from the SAM Api's DefinitionUri property.
@@ -388,17 +470,17 @@ class ApiGenerator:
         :returns: a BodyS3Location dict, containing the S3 Bucket, Key, and Version of the Swagger definition
         :rtype: dict
         """
-        if isinstance(self.definition_uri, dict):
-            if not self.definition_uri.get("Bucket", None) or not self.definition_uri.get("Key", None):
+        if isinstance(self.open_api.definition_uri, dict):
+            if not self.open_api.definition_uri.get("Bucket", None) or not self.open_api.definition_uri.get("Key", None):
                 # DefinitionUri is a dictionary but does not contain Bucket or Key property
                 raise InvalidResourceException(
                     self.logical_id, "'DefinitionUri' requires Bucket and Key properties to be specified."
                 )
-            s3_pointer = self.definition_uri
+            s3_pointer = self.open_api.definition_uri
 
         else:
             # DefinitionUri is a string
-            _parsed_s3_pointer = parse_s3_uri(self.definition_uri)
+            _parsed_s3_pointer = parse_s3_uri(self.open_api.definition_uri)
             if _parsed_s3_pointer is None:
                 raise InvalidResourceException(
                     self.logical_id,
@@ -407,7 +489,7 @@ class ApiGenerator:
                 )
             s3_pointer = _parsed_s3_pointer
 
-            if isinstance(self.definition_uri, Py27UniStr):
+            if isinstance(self.open_api.definition_uri, Py27UniStr):
                 # self.defintion_uri is a Py27UniStr instance if it is defined in the template
                 # we need to preserve the Py27UniStr type
                 s3_pointer["Bucket"] = Py27UniStr(s3_pointer["Bucket"])
@@ -431,10 +513,10 @@ class ApiGenerator:
         :rtype: model.apigateway.ApiGatewayDeployment
         """
         deployment = ApiGatewayDeployment(
-            self.logical_id + "Deployment", attributes=self.passthrough_resource_attributes
+            self.logical_id + "Deployment", attributes=self.resource_attrs.passthrough_resource_attributes
         )
         deployment.RestApiId = rest_api.get_runtime_attr("rest_api_id")
-        if not self.remove_extra_stage:
+        if not self.open_api.remove_extra_stage:
             deployment.StageName = "Stage"
 
         return deployment
@@ -451,36 +533,36 @@ class ApiGenerator:
 
         # If StageName is some intrinsic function, then don't prefix the Stage's logical ID
         # This will NOT create duplicates because we allow only ONE stage per API resource
-        stage_name_prefix = self.stage_name if isinstance(self.stage_name, str) else ""
+        stage_name_prefix = self.stage.stage_name if isinstance(self.stage.stage_name, str) else ""
         if stage_name_prefix.isalnum():
             stage_logical_id = self.logical_id + stage_name_prefix + "Stage"
         else:
             generator = LogicalIdGenerator(self.logical_id + "Stage", stage_name_prefix)
             stage_logical_id = generator.gen()
-        stage = ApiGatewayStage(stage_logical_id, attributes=self.passthrough_resource_attributes)
+        stage = ApiGatewayStage(stage_logical_id, attributes=self.resource_attrs.passthrough_resource_attributes)
         stage.RestApiId = ref(self.logical_id)
         stage.update_deployment_ref(deployment.logical_id)
-        stage.StageName = self.stage_name
-        stage.CacheClusterEnabled = self.cache_cluster_enabled
-        stage.CacheClusterSize = self.cache_cluster_size
-        stage.Variables = self.variables
-        stage.MethodSettings = self.method_settings
-        stage.AccessLogSetting = self.access_log_setting
-        stage.CanarySetting = self.canary_setting
-        stage.TracingEnabled = self.tracing_enabled
+        stage.StageName = self.stage.stage_name
+        stage.CacheClusterEnabled = self.stage.cache_cluster_enabled
+        stage.CacheClusterSize = self.stage.cache_cluster_size
+        stage.Variables = self.stage.variables
+        stage.MethodSettings = self.stage.method_settings
+        stage.AccessLogSetting = self.stage.access_log_setting
+        stage.CanarySetting = self.stage.canary_setting
+        stage.TracingEnabled = self.stage.tracing_enabled
 
         if swagger is not None:
             deployment.make_auto_deployable(
                 stage,
-                self.remove_extra_stage,
+                self.open_api.remove_extra_stage,
                 swagger,
                 self.domain,
                 redeploy_restapi_parameters,
-                self.always_deploy,
+                self.rest_api.always_deploy,
             )
 
-        if self.tags is not None:
-            stage.Tags = get_tag_list(self.tags)
+        if self.stage.tags is not None:
+            stage.Tags = get_tag_list(self.stage.tags)
 
         return stage
 
@@ -513,7 +595,7 @@ class ApiGenerator:
         ).to_not_be_none()
         api_domain_name = "{}{}".format("ApiGatewayDomainName", LogicalIdGenerator("", domain_name).gen())
         self.domain["ApiDomainName"] = api_domain_name
-        domain = ApiGatewayDomainName(api_domain_name, attributes=self.passthrough_resource_attributes)
+        domain = ApiGatewayDomainName(api_domain_name, attributes=self.resource_attrs.passthrough_resource_attributes)
         domain.DomainName = domain_name
         self._configure_endpoint(domain, self.domain.get("EndpointConfiguration"), certificate_arn)
         self._configure_ip_address_type(domain)
@@ -677,7 +759,7 @@ class ApiGenerator:
 
         api_domain_name = "{}{}".format("ApiGatewayDomainNameV2", LogicalIdGenerator("", domain_name).gen())
         domain_name_arn = ref(api_domain_name)
-        domain = ApiGatewayDomainNameV2(api_domain_name, attributes=self.passthrough_resource_attributes)
+        domain = ApiGatewayDomainNameV2(api_domain_name, attributes=self.resource_attrs.passthrough_resource_attributes)
 
         domain.DomainName = domain_name
         endpoint = self.domain.get("EndpointConfiguration")
@@ -718,7 +800,7 @@ class ApiGenerator:
                 path = "".join(e for e in basepath if e.isalnum())
                 logical_id = "{}{}{}".format(self.logical_id, path, "BasePathMapping")
                 basepath_mapping = ApiGatewayBasePathMappingV2(
-                    logical_id, attributes=self.passthrough_resource_attributes
+                    logical_id, attributes=self.resource_attrs.passthrough_resource_attributes
                 )
                 basepath_mapping.DomainNameArn = domain_name_arn
                 basepath_mapping.RestApiId = ref(rest_api.logical_id)
@@ -787,7 +869,7 @@ class ApiGenerator:
             domain.OwnershipVerificationCertificateArn = self.domain["OwnershipVerificationCertificateArn"]
 
     def _get_record_set_group(self, logical_id: str, route53: dict[str, Any]) -> Route53RecordSetGroup:
-        record_set_group = Route53RecordSetGroup(logical_id, attributes=self.passthrough_resource_attributes)
+        record_set_group = Route53RecordSetGroup(logical_id, attributes=self.resource_attrs.passthrough_resource_attributes)
         if "HostedZoneId" in route53:
             record_set_group.HostedZoneId = route53.get("HostedZoneId")
         if "HostedZoneName" in route53:
@@ -803,7 +885,7 @@ class ApiGenerator:
         domainName = domain.get("DomainName")
         logical_id = LogicalIdGenerator("RecordSetGroup", [hostedZoneId or hostedZoneName, domainName]).gen()
 
-        record_set_group = Route53RecordSetGroup(logical_id, attributes=self.passthrough_resource_attributes)
+        record_set_group = Route53RecordSetGroup(logical_id, attributes=self.resource_attrs.passthrough_resource_attributes)
         if hostedZoneId:
             record_set_group.HostedZoneId = hostedZoneId
         if hostedZoneName:
@@ -872,10 +954,10 @@ class ApiGenerator:
 
         basepath_mapping: ApiGatewayBasePathMapping
         basepath_mapping = (
-            ApiGatewayBasePathMapping(logical_id, attributes=self.passthrough_resource_attributes)
+            ApiGatewayBasePathMapping(logical_id, attributes=self.resource_attrs.passthrough_resource_attributes)
             if logical_id
             else ApiGatewayBasePathMapping(
-                self.logical_id + "BasePathMapping", attributes=self.passthrough_resource_attributes
+                self.logical_id + "BasePathMapping", attributes=self.resource_attrs.passthrough_resource_attributes
             )
         )
         basepath_mapping.DomainName = ref(api_domain_name)
@@ -889,7 +971,7 @@ class ApiGenerator:
         self, domain_name_arn: PassThrough, rest_api: ApiGatewayRestApi
     ) -> ApiGatewayBasePathMappingV2:
         basepath_mapping = ApiGatewayBasePathMappingV2(
-            self.logical_id + "BasePathMapping", attributes=self.passthrough_resource_attributes
+            self.logical_id + "BasePathMapping", attributes=self.resource_attrs.passthrough_resource_attributes
         )
         basepath_mapping.DomainNameArn = domain_name_arn
         basepath_mapping.RestApiId = ref(rest_api.logical_id)
@@ -984,29 +1066,29 @@ class ApiGenerator:
 
         INVALID_ERROR = "Invalid value for 'Cors' property"
 
-        if not self.cors:
+        if not self.open_api.cors:
             return
 
-        if self.cors and not self.definition_body:
+        if self.open_api.cors and not self.open_api.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Cors works only with inline Swagger specified in 'DefinitionBody' property."
             )
 
-        if isinstance(self.cors, str) or is_intrinsic(self.cors):
+        if isinstance(self.open_api.cors, str) or is_intrinsic(self.open_api.cors):
             # Just set Origin property. Others will be defaults
-            properties = CorsProperties(AllowOrigin=self.cors)  # type: ignore[call-arg]
-        elif isinstance(self.cors, dict):
+            properties = CorsProperties(AllowOrigin=self.open_api.cors)  # type: ignore[call-arg]
+        elif isinstance(self.open_api.cors, dict):
             # Make sure keys in the dict are recognized
-            for key in self.cors:
+            for key in self.open_api.cors:
                 if key not in CorsProperties._fields:
                     raise InvalidResourceException(self.logical_id, f"Invalid key '{key}' for 'Cors' property.")
 
-            properties = CorsProperties(**self.cors)
+            properties = CorsProperties(**self.open_api.cors)
 
         else:
             raise InvalidResourceException(self.logical_id, INVALID_ERROR)
 
-        if not SwaggerEditor.is_valid(self.definition_body):
+        if not SwaggerEditor.is_valid(self.open_api.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add Cors configuration because "
@@ -1021,7 +1103,7 @@ class ApiGenerator:
                 "'AllowOrigin' is \"'*'\" or not set",
             )
 
-        editor = SwaggerEditor(self.definition_body)
+        editor = SwaggerEditor(self.open_api.definition_body)
         # Track normalized paths to avoid duplicate OPTIONS methods for paths that differ only by trailing slash
         # API Gateway treats /path and /path/ as the same resource, so we normalize before adding CORS
         normalized_paths_processed: set[str] = set()
@@ -1049,51 +1131,51 @@ class ApiGenerator:
                 raise InvalidResourceException(self.logical_id, ex.message) from ex
 
         # Assign the Swagger back to template
-        self.definition_body = editor.swagger
+        self.open_api.definition_body = editor.swagger
 
     def _add_binary_media_types(self) -> None:
         """
         Add binary media types to Swagger
         """
 
-        if not self.binary_media:
+        if not self.open_api.binary_media:
             return
 
         # We don't raise an error here like we do for similar cases because that would be backwards incompatible
-        if self.binary_media and not self.definition_body:
+        if self.open_api.binary_media and not self.open_api.definition_body:
             return
 
-        editor = SwaggerEditor(self.definition_body)
-        editor.add_binary_media_types(self.binary_media)  # type: ignore[no-untyped-call]
+        editor = SwaggerEditor(self.open_api.definition_body)
+        editor.add_binary_media_types(self.open_api.binary_media)  # type: ignore[no-untyped-call]
 
         # Assign the Swagger back to template
-        self.definition_body = editor.swagger
+        self.open_api.definition_body = editor.swagger
 
     def _add_auth(self) -> None:
         """
         Add Auth configuration to the Swagger file, if necessary
         """
 
-        if not self.auth:
+        if not self.open_api.auth:
             return
 
-        if self.auth and not self.definition_body:
+        if self.open_api.auth and not self.open_api.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Auth works only with inline Swagger specified in 'DefinitionBody' property."
             )
 
         # Make sure keys in the dict are recognized
-        if not all(key in AuthProperties._fields for key in self.auth):
+        if not all(key in AuthProperties._fields for key in self.open_api.auth):
             raise InvalidResourceException(self.logical_id, "Invalid value for 'Auth' property")
 
-        if not SwaggerEditor.is_valid(self.definition_body):
+        if not SwaggerEditor.is_valid(self.open_api.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add Auth configuration because "
                 "'DefinitionBody' does not contain a valid Swagger definition.",
             )
-        swagger_editor = SwaggerEditor(self.definition_body)
-        auth_properties = AuthProperties(**self.auth)
+        swagger_editor = SwaggerEditor(self.open_api.definition_body)
+        auth_properties = AuthProperties(**self.open_api.auth)
         authorizers = self._get_authorizers(auth_properties.Authorizers, auth_properties.DefaultAuthorizer)  # type: ignore[no-untyped-call]
 
         if authorizers:
@@ -1114,11 +1196,11 @@ class ApiGenerator:
                 auth_properties.ResourcePolicy, "ResourcePolicy must be a map (ResourcePolicyStatement)."
             )
             for path in swagger_editor.iter_on_path():
-                swagger_editor.add_resource_policy(auth_properties.ResourcePolicy, path, self.stage_name)
+                swagger_editor.add_resource_policy(auth_properties.ResourcePolicy, path, self.stage.stage_name)
             if auth_properties.ResourcePolicy.get("CustomStatements"):
                 swagger_editor.add_custom_statements(auth_properties.ResourcePolicy.get("CustomStatements"))  # type: ignore[no-untyped-call]
 
-        self.definition_body = self._openapi_postprocess(swagger_editor.swagger)
+        self.open_api.definition_body = self._openapi_postprocess(swagger_editor.swagger)
 
     def _construct_usage_plan(self, rest_api_stage: ApiGatewayStage | None = None) -> Any:
         usage_plan_properties, create_usage_plan = self._validate_usage_plan_properties()
@@ -1139,9 +1221,9 @@ class ApiGenerator:
 
     def _validate_usage_plan_properties(self) -> tuple[Any, Any]:
         create_usage_plans_accepted_values = ["SHARED", "PER_API", "NONE"]
-        if not self.auth:
+        if not self.open_api.auth:
             return None, None
-        auth_properties = AuthProperties(**self.auth)
+        auth_properties = AuthProperties(**self.open_api.auth)
         if auth_properties.UsagePlan is None:
             return None, None
         usage_plan_properties = auth_properties.UsagePlan
@@ -1165,7 +1247,7 @@ class ApiGenerator:
         usage_plan = ApiGatewayUsagePlan(
             logical_id=usage_plan_logical_id,
             depends_on=[self.logical_id],
-            attributes=self.passthrough_resource_attributes,
+            attributes=self.resource_attrs.passthrough_resource_attributes,
         )
         api_stages = []
         api_stage = {}
@@ -1183,21 +1265,21 @@ class ApiGenerator:
     ) -> tuple[ApiGatewayUsagePlan, ApiGatewayApiKey, ApiGatewayUsagePlanKey]:
         LOG.info("Creating SHARED usage plan for all the Apis")
         usage_plan_logical_id = "ServerlessUsagePlan"
-        if self.logical_id not in self.shared_api_usage_plan.depends_on_shared:
-            self.shared_api_usage_plan.depends_on_shared.append(self.logical_id)
+        if self.logical_id not in self.shared.shared_api_usage_plan.depends_on_shared:
+            self.shared.shared_api_usage_plan.depends_on_shared.append(self.logical_id)
         usage_plan = ApiGatewayUsagePlan(
             logical_id=usage_plan_logical_id,
-            depends_on=self.shared_api_usage_plan.depends_on_shared,
-            attributes=self.shared_api_usage_plan.get_combined_resource_attributes(
-                self.passthrough_resource_attributes, self.template_conditions
+            depends_on=self.shared.shared_api_usage_plan.depends_on_shared,
+            attributes=self.shared.shared_api_usage_plan.get_combined_resource_attributes(
+                self.resource_attrs.passthrough_resource_attributes, self.shared.template_conditions
             ),
         )
         api_stage = {}
         api_stage["ApiId"] = ref(self.logical_id)
         api_stage["Stage"] = ref(rest_api_stage.logical_id)
-        if api_stage not in self.shared_api_usage_plan.api_stages_shared:
-            self.shared_api_usage_plan.api_stages_shared.append(api_stage)
-        usage_plan.ApiStages = self.shared_api_usage_plan.api_stages_shared
+        if api_stage not in self.shared.shared_api_usage_plan.api_stages_shared:
+            self.shared.shared_api_usage_plan.api_stages_shared.append(api_stage)
+        usage_plan.ApiStages = self.shared.shared_api_usage_plan.api_stages_shared
 
         api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
         usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
@@ -1226,17 +1308,17 @@ class ApiGenerator:
             api_key = ApiGatewayApiKey(
                 logical_id=api_key_logical_id,
                 depends_on=[usage_plan_logical_id],
-                attributes=self.shared_api_usage_plan.get_combined_resource_attributes(
-                    self.passthrough_resource_attributes, self.template_conditions
+                attributes=self.shared.shared_api_usage_plan.get_combined_resource_attributes(
+                    self.resource_attrs.passthrough_resource_attributes, self.shared.template_conditions
                 ),
             )
             api_key.Enabled = True
             stage_key = {}
             stage_key["RestApiId"] = ref(self.logical_id)
             stage_key["StageName"] = ref(rest_api_stage.logical_id)
-            if stage_key not in self.shared_api_usage_plan.stage_keys_shared:
-                self.shared_api_usage_plan.stage_keys_shared.append(stage_key)
-            api_key.StageKeys = self.shared_api_usage_plan.stage_keys_shared
+            if stage_key not in self.shared.shared_api_usage_plan.stage_keys_shared:
+                self.shared.shared_api_usage_plan.stage_keys_shared.append(stage_key)
+            api_key.StageKeys = self.shared.shared_api_usage_plan.stage_keys_shared
         # for create_usage_plan = "PER_API"
         else:
             # create an api key resource for this api
@@ -1244,7 +1326,7 @@ class ApiGenerator:
             api_key = ApiGatewayApiKey(
                 logical_id=api_key_logical_id,
                 depends_on=[usage_plan_logical_id],
-                attributes=self.passthrough_resource_attributes,
+                attributes=self.resource_attrs.passthrough_resource_attributes,
             )
             api_key.Enabled = True
             stage_keys = []
@@ -1267,14 +1349,14 @@ class ApiGenerator:
         if create_usage_plan == "SHARED":
             # create a mapping between api key and the usage plan
             usage_plan_key_logical_id = "ServerlessUsagePlanKey"
-            resource_attributes = self.shared_api_usage_plan.get_combined_resource_attributes(
-                self.passthrough_resource_attributes, self.template_conditions
+            resource_attributes = self.shared.shared_api_usage_plan.get_combined_resource_attributes(
+                self.resource_attrs.passthrough_resource_attributes, self.shared.template_conditions
             )
         # for create_usage_plan = "PER_API"
         else:
             # create a mapping between api key and the usage plan
             usage_plan_key_logical_id = self.logical_id + "UsagePlanKey"
-            resource_attributes = self.passthrough_resource_attributes
+            resource_attributes = self.resource_attrs.passthrough_resource_attributes
 
         usage_plan_key = ApiGatewayUsagePlanKey(
             logical_id=usage_plan_key_logical_id,
@@ -1292,17 +1374,17 @@ class ApiGenerator:
         Add Gateway Response configuration to the Swagger file, if necessary
         """
 
-        if not self.gateway_responses:
+        if not self.open_api.gateway_responses:
             return
 
-        if self.gateway_responses and not self.definition_body:
+        if self.open_api.gateway_responses and not self.open_api.definition_body:
             raise InvalidResourceException(
                 self.logical_id,
                 "GatewayResponses works only with inline Swagger specified in 'DefinitionBody' property.",
             )
 
         # Make sure keys in the dict are recognized
-        for responses_key, responses_value in self.gateway_responses.items():
+        for responses_key, responses_value in self.open_api.gateway_responses.items():
             if is_intrinsic(responses_value):
                 # TODO: Add intrinsic support for this field.
                 raise InvalidResourceException(
@@ -1323,18 +1405,18 @@ class ApiGenerator:
                         f"Invalid property '{response_key}' in 'GatewayResponses' property '{responses_key}'.",
                     )
 
-        if not SwaggerEditor.is_valid(self.definition_body):
+        if not SwaggerEditor.is_valid(self.open_api.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add Auth configuration because "
                 "'DefinitionBody' does not contain a valid Swagger definition.",
             )
 
-        swagger_editor = SwaggerEditor(self.definition_body)
+        swagger_editor = SwaggerEditor(self.open_api.definition_body)
 
         # The dicts below will eventually become part of swagger/openapi definition, thus requires using Py27Dict()
         gateway_responses = Py27Dict()
-        for response_type, response in self.gateway_responses.items():
+        for response_type, response in self.open_api.gateway_responses.items():
             sam_expect(response, self.logical_id, f"GatewayResponses.{response_type}").to_be_a_map()
             response_parameters = response.get("ResponseParameters", Py27Dict())
             response_templates = response.get("ResponseTemplates", Py27Dict())
@@ -1353,7 +1435,7 @@ class ApiGenerator:
             swagger_editor.add_gateway_responses(gateway_responses)  # type: ignore[no-untyped-call]
 
         # Assign the Swagger back to template
-        self.definition_body = swagger_editor.swagger
+        self.open_api.definition_body = swagger_editor.swagger
 
     def _add_models(self) -> None:
         """
@@ -1361,30 +1443,30 @@ class ApiGenerator:
         :return:
         """
 
-        if not self.models:
+        if not self.open_api.models:
             return
 
-        if self.models and not self.definition_body:
+        if self.open_api.models and not self.open_api.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Models works only with inline Swagger specified in 'DefinitionBody' property."
             )
 
-        if not SwaggerEditor.is_valid(self.definition_body):
+        if not SwaggerEditor.is_valid(self.open_api.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add Models definitions because "
                 "'DefinitionBody' does not contain a valid Swagger definition.",
             )
 
-        if not all(isinstance(model, dict) for model in self.models.values()):
+        if not all(isinstance(model, dict) for model in self.open_api.models.values()):
             raise InvalidResourceException(self.logical_id, "Invalid value for 'Models' property")
 
-        swagger_editor = SwaggerEditor(self.definition_body)
-        swagger_editor.add_models(self.models)  # type: ignore[no-untyped-call]
+        swagger_editor = SwaggerEditor(self.open_api.definition_body)
+        swagger_editor.add_models(self.open_api.models)  # type: ignore[no-untyped-call]
 
         # Assign the Swagger back to template
 
-        self.definition_body = self._openapi_postprocess(swagger_editor.swagger)
+        self.open_api.definition_body = self._openapi_postprocess(swagger_editor.swagger)
 
     def _openapi_postprocess(self, definition_body: dict[str, Any]) -> dict[str, Any]:
         """
@@ -1408,11 +1490,11 @@ class ApiGenerator:
         return definition_body
 
     def _normalize_openapi_version(self, definition_body: dict[str, Any]) -> Any:
-        if self.feature_toggle and self.feature_toggle.is_enabled(FEATURE_FLAG_NORMALIZED_OPENAPI_VERSION):
-            return definition_body.get("openapi", self.open_api_version)
-        if definition_body.get("openapi") is not None and self.open_api_version is None:
+        if self.rest_api.feature_toggle and self.rest_api.feature_toggle.is_enabled(FEATURE_FLAG_NORMALIZED_OPENAPI_VERSION):
+            return definition_body.get("openapi", self.open_api.open_api_version)
+        if definition_body.get("openapi") is not None and self.open_api.open_api_version is None:
             return definition_body.get("openapi")
-        return self.open_api_version
+        return self.open_api.open_api_version
 
     def _migrate_security_definitions(self, definition_body: dict[str, Any]) -> None:
         if not definition_body.get("securityDefinitions"):
@@ -1527,7 +1609,7 @@ class ApiGenerator:
         :returns: the permission resource
         :rtype: model.lambda_.LambdaPermission
         """
-        rest_api = ApiGatewayRestApi(self.logical_id, depends_on=self.depends_on, attributes=self.resource_attributes)
+        rest_api = ApiGatewayRestApi(self.logical_id, depends_on=self.stage.depends_on, attributes=self.resource_attrs.resource_attributes)
         api_id = rest_api.get_runtime_attr("rest_api_id")
 
         partition = ArnGenerator.get_partition_name()
@@ -1538,7 +1620,7 @@ class ApiGenerator:
         )
 
         lambda_permission = LambdaPermission(
-            self.logical_id + authorizer_name + "AuthorizerPermission", attributes=self.passthrough_resource_attributes
+            self.logical_id + authorizer_name + "AuthorizerPermission", attributes=self.resource_attrs.passthrough_resource_attributes
         )
         lambda_permission.Action = "lambda:InvokeFunction"
         lambda_permission.FunctionName = authorizer_lambda_function_arn
@@ -1548,10 +1630,10 @@ class ApiGenerator:
         return lambda_permission
 
     def _construct_authorizer_lambda_permission(self) -> list[LambdaPermission]:
-        if not self.auth:
+        if not self.open_api.auth:
             return []
 
-        auth_properties = AuthProperties(**self.auth)
+        auth_properties = AuthProperties(**self.open_api.auth)
         authorizers = self._get_authorizers(auth_properties.Authorizers)  # type: ignore[no-untyped-call]
 
         if not authorizers:
@@ -1561,10 +1643,10 @@ class ApiGenerator:
 
         for authorizer_name, authorizer in authorizers.items():
             # Construct permissions for Lambda Authorizers only
-            if not authorizer.function_arn or authorizer.disable_function_default_permissions:
+            if not authorizer.function_config.function_arn or authorizer.function_config.disable_function_default_permissions:
                 continue
 
-            permission = self._get_permission(authorizer_name, authorizer.function_arn)  # type: ignore[no-untyped-call]
+            permission = self._get_permission(authorizer_name, authorizer.function_config.function_arn)  # type: ignore[no-untyped-call]
             permissions.append(permission)
 
         return permissions
@@ -1652,7 +1734,7 @@ class ApiGenerator:
         logical_id = LogicalIdGenerator("DomainNameAccessAssociation", [vpcEndpointId, domain_logical_id]).gen()
 
         domain_access_association_resource = ApiGatewayDomainNameAccessAssociation(
-            logical_id, attributes=self.passthrough_resource_attributes
+            logical_id, attributes=self.resource_attrs.passthrough_resource_attributes
         )
         domain_access_association_resource.DomainNameArn = domain_name_arn
         domain_access_association_resource.AccessAssociationSourceType = "VPCE"

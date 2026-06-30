@@ -70,7 +70,10 @@ from samtranslator.model.apigatewayv2 import (
     ApiGatewayV2Stage,
 )
 from samtranslator.model.architecture import ARM64, X86_64
-from samtranslator.model.capacity_provider.generators import CapacityProviderGenerator
+from samtranslator.model.capacity_provider.generators import (
+    CapacityProviderGenerator,
+    _CapacityProviderProperties,
+)
 from samtranslator.model.cfn_attributes.deletion_policy import DeletionPolicy
 from samtranslator.model.cloudformation import NestedStack
 from samtranslator.model.connector.connector import (
@@ -120,6 +123,7 @@ from samtranslator.model.role_utils import construct_role_for_resource
 from samtranslator.model.sns import SNSTopic, SNSTopicPolicy
 from samtranslator.model.sqs import SQSQueue, SQSQueuePolicy
 from samtranslator.model.stepfunctions import StateMachineGenerator
+from samtranslator.model.stepfunctions.generators import StateMachineConfig
 from samtranslator.model.types import (
     IS_BOOL,
     IS_DICT,
@@ -1621,8 +1625,7 @@ class SamCapacityProvider(SamResourceMacro):
             aws_serverless_capacity_provider.Properties, collect_all_errors=True
         )
 
-        capacity_provider_generator = CapacityProviderGenerator(
-            logical_id=self.logical_id,
+        capacity_provider_config = _CapacityProviderProperties(
             capacity_provider_name=passthrough_value(model.CapacityProviderName),
             vpc_config=model.VpcConfig.dict() if model.VpcConfig else None,
             operator_role=passthrough_value(model.OperatorRole),
@@ -1638,6 +1641,10 @@ class SamCapacityProvider(SamResourceMacro):
             depends_on=self.depends_on,
             resource_attributes=self.resource_attributes,
             passthrough_resource_attributes=self.get_passthrough_resource_attributes(),
+        )
+        capacity_provider_generator = CapacityProviderGenerator(
+            logical_id=self.logical_id,
+            config=capacity_provider_config,
         )
 
         resources = capacity_provider_generator.to_cloudformation()
@@ -2377,7 +2384,7 @@ class SamStateMachine(SamResourceMacro):
         intrinsics_resolver = kwargs["intrinsics_resolver"]
         event_resources = kwargs["event_resources"]
 
-        state_machine_generator = StateMachineGenerator(  # type: ignore[no-untyped-call]
+        state_machine_generator = StateMachineGenerator(StateMachineConfig(
             logical_id=self.logical_id,
             depends_on=self.depends_on,
             managed_policy_map=managed_policy_map,
@@ -2403,7 +2410,7 @@ class SamStateMachine(SamResourceMacro):
             auto_publish_alias=self.AutoPublishAlias,
             deployment_preference=self.DeploymentPreference,
             use_alias_as_event_target=self.UseAliasAsEventTarget,
-        )
+        ))
 
         generated_resources = state_machine_generator.to_cloudformation()
 
