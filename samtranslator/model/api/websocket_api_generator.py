@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any
 
 from samtranslator.metrics.method_decorator import cw_timer
@@ -26,6 +27,17 @@ class AuthType:
     AWS_IAM = "AWS_IAM"
     CUSTOM = "CUSTOM"
     TYPES = (NONE, AWS_IAM, CUSTOM)
+
+
+@dataclass
+class WebSocketApiConfig:
+    name: str | None = None
+    routes: dict[str, dict[str, Any]] | None = None
+    route_selection_expression: str = "$request.body"
+    api_key_selection_expression: Intrinsicable[str] | None = None
+    auth_config: dict[str, Any] | None = None
+    disable_schema_validation: Intrinsicable[bool] | None = None
+    ip_address_type: Intrinsicable[str] | None = None
 
 
 class WebSocketApiGenerator(ApiV2Generator):
@@ -77,12 +89,14 @@ class WebSocketApiGenerator(ApiV2Generator):
         :param passthrough_resource_attributes: Attributes such as 'Condition' that are added to derived resources
         :param tags: Stage and API tags
         """
+        stage_name = stage_name if stage_name is not None else DefaultStageName
         super().__init__(
             logical_id,
             stage_config=StageConfig(
                 stage_variables=stage_variables,
                 access_log_settings=access_log_settings,
                 tags=tags,
+                stage_name=stage_name,
             ),
             route_config=RouteConfig(
                 route_settings=route_settings,
@@ -97,21 +111,21 @@ class WebSocketApiGenerator(ApiV2Generator):
             disable_execute_api_endpoint=disable_execute_api_endpoint,
             domain=domain,
         )
-        # use logical id as name if none provided
-        self.name = name if name is not None else self.logical_id
-        self.stage_name = stage_name if stage_name is not None else DefaultStageName
-        self.routes = routes
-        if not self.routes:
+        self.api_config = WebSocketApiConfig(
+            name=name if name is not None else self.logical_id,
+            routes=routes,
+            route_selection_expression=route_selection_expression,
+            api_key_selection_expression=api_key_selection_expression,
+            auth_config=auth_config,
+            disable_schema_validation=disable_schema_validation,
+            ip_address_type=ip_address_type,
+        )
+        if not self.api_config.routes:
             raise InvalidResourceException(self.logical_id, "WebSocket API must have at least one route.")
-        self.route_selection_expression = route_selection_expression
-        self.api_key_selection_expression = api_key_selection_expression
-        self.auth_config = auth_config
-        self.disable_schema_validation = disable_schema_validation
-        self.ip_address_type = ip_address_type
         if (
-            self.ip_address_type is not None
-            and not is_intrinsic(self.ip_address_type)
-            and self.ip_address_type not in ("ipv4", "dualstack")
+            self.api_config.ip_address_type is not None
+            and not is_intrinsic(self.api_config.ip_address_type)
+            and self.api_config.ip_address_type not in ("ipv4", "dualstack")
         ):
             raise InvalidResourceException(self.logical_id, "IpAddressType must be 'ipv4' or 'dualstack'.")
 
@@ -126,17 +140,17 @@ class WebSocketApiGenerator(ApiV2Generator):
             self.logical_id, depends_on=self.cfn_attributes.depends_on, attributes=self.cfn_attributes.resource_attributes
         )
         # Direct passes
-        websocket_api.ApiKeySelectionExpression = self.api_key_selection_expression
+        websocket_api.ApiKeySelectionExpression = self.api_config.api_key_selection_expression
         websocket_api.Description = self.description
         websocket_api.DisableExecuteApiEndpoint = self.disable_execute_api_endpoint
-        websocket_api.DisableSchemaValidation = self.disable_schema_validation
-        websocket_api.IpAddressType = self.ip_address_type
-        if self.auth_config and "$connect" not in self.routes:
+        websocket_api.DisableSchemaValidation = self.api_config.disable_schema_validation
+        websocket_api.IpAddressType = self.api_config.ip_address_type
+        if self.api_config.auth_config and "$connect" not in self.api_config.routes:
             raise InvalidResourceException(
                 self.logical_id, "Authorization is only available if there is a $connect route."
             )
-        websocket_api.Name = self.name
-        websocket_api.RouteSelectionExpression = self.route_selection_expression
+        websocket_api.Name = self.api_config.name
+        websocket_api.RouteSelectionExpression = self.api_config.route_selection_expression
         if not self.stage_config.tags:
             self.stage_config.tags = {}
         self.stage_config.tags[self.default_tag_name] = "SAM"
@@ -151,19 +165,19 @@ class WebSocketApiGenerator(ApiV2Generator):
         auth_name = self.logical_id + "ConnectAuthorizer"
         auth = ApiGatewayV2WSAuthorizer(auth_name, attributes=self.cfn_attributes.passthrough_resource_attributes)
         auth.ApiId = {"Ref": self.logical_id}
-        if self.auth_config:  # unpacking
-            if "InvokeRole" in self.auth_config:
-                auth.AuthorizerCredentialsArn = self.auth_config["InvokeRole"]
+        if self.api_config.auth_config:  # unpacking
+            if "InvokeRole" in self.api_config.auth_config:
+                auth.AuthorizerCredentialsArn = self.api_config.auth_config["InvokeRole"]
             auth.AuthorizerType = "REQUEST"
-            if "AuthArn" in self.auth_config:
+            if "AuthArn" in self.api_config.auth_config:
                 auth.AuthorizerUri = fnSub(
                     "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthArn}/invocations",
-                    {"AuthArn": self.auth_config["AuthArn"]},
+                    {"AuthArn": self.api_config.auth_config["AuthArn"]},
                 )
-            auth.IdentitySource = self.auth_config.get("IdentitySource")
+            auth.IdentitySource = self.api_config.auth_config.get("IdentitySource")
             # use logical id if no name provided
-            if self.auth_config.get("Name"):
-                auth.Name = self.auth_config.get("Name")
+            if self.api_config.auth_config.get("Name"):
+                auth.Name = self.api_config.auth_config.get("Name")
             else:
                 auth.Name = auth_name
         return auth
@@ -171,14 +185,14 @@ class WebSocketApiGenerator(ApiV2Generator):
     def _construct_authorizer_permission(self, websocket_api: ApiGatewayV2WebSocketApi) -> LambdaPermission | None:
         """Constructs Lambda Permission allowing API Gateway to invoke the authorizer function.
         Only needed when InvokeRole is not provided (resource-based permissions)."""
-        if not self.auth_config or self.auth_config.get("AuthType") != AuthType.CUSTOM:
+        if not self.api_config.auth_config or self.api_config.auth_config.get("AuthType") != AuthType.CUSTOM:
             return None
 
         # If InvokeRole is provided, API Gateway uses role-based invocation, no permission needed
-        if self.auth_config.get("InvokeRole"):
+        if self.api_config.auth_config.get("InvokeRole"):
             return None
 
-        auth_arn = self.auth_config.get("AuthArn")
+        auth_arn = self.api_config.auth_config.get("AuthArn")
         if not auth_arn:
             return None
 
@@ -215,7 +229,7 @@ class WebSocketApiGenerator(ApiV2Generator):
         )
 
     def _validate_auth(self, auth_config: dict[str, Any]) -> None:
-        # Use parameter `auth_config` that we know is not None, instead of `self.auth_config`
+        # Use parameter `auth_config` that we know is not None, instead of `self.api_config.auth_config`
         auth_type = auth_config.get("AuthType")
         if auth_type:
             auth_type = auth_type.upper()
@@ -259,18 +273,18 @@ class WebSocketApiGenerator(ApiV2Generator):
     def _set_auth_type_and_return_custom_authorizer(
         self, route_key: str, route: ApiGatewayV2Route
     ) -> ApiGatewayV2WSAuthorizer | None:
-        if not self.auth_config:
+        if not self.api_config.auth_config:
             return None
-        self._validate_auth(self.auth_config)
+        self._validate_auth(self.api_config.auth_config)
         # set up auth if has config and has connect route
         if route_key == "$connect":
-            if self.auth_config["AuthType"] == AuthType.CUSTOM:
-                if self.auth_config["AuthArn"]:  # this is mostly to unpack the optional/for type checking purposes
+            if self.api_config.auth_config["AuthType"] == AuthType.CUSTOM:
+                if self.api_config.auth_config["AuthArn"]:  # this is mostly to unpack the optional/for type checking purposes
                     apigw_authorizer = self._construct_authorizer()
                     route.AuthorizationType = AuthType.CUSTOM
                     route.AuthorizerId = {"Ref": apigw_authorizer.logical_id}
                     return apigw_authorizer
-            elif self.auth_config["AuthType"] == AuthType.AWS_IAM:
+            elif self.api_config.auth_config["AuthType"] == AuthType.AWS_IAM:
                 route.AuthorizationType = AuthType.AWS_IAM
             else:
                 route.AuthorizationType = AuthType.NONE
@@ -300,12 +314,12 @@ class WebSocketApiGenerator(ApiV2Generator):
         perms.Action = "lambda:InvokeFunction"
         perms.FunctionName = route_spec["FunctionArn"]
         perms.Principal = "apigateway.amazonaws.com"
-        if isinstance(self.stage_name, str):
+        if isinstance(self.stage_config.stage_name, str):
             perms.SourceArn = fnSub(
                 "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${"
                 + self.logical_id
                 + ".ApiId}/"
-                + self.stage_name
+                + self.stage_config.stage_name
                 + "/"
                 + route_key
             )
@@ -315,7 +329,7 @@ class WebSocketApiGenerator(ApiV2Generator):
                 + self.logical_id
                 + ".ApiId}/${__StageName__}/"
                 + route_key,
-                {"__StageName__": self.stage_name},
+                {"__StageName__": self.stage_config.stage_name},
             )
         return perms
 
@@ -345,9 +359,9 @@ class WebSocketApiGenerator(ApiV2Generator):
 
         # If StageName is some intrinsic function, then don't prefix the Stage's logical ID
         # This will NOT create duplicates because we allow only ONE stage per API resource
-        if self.stage_name == "$default":
+        if self.stage_config.stage_name == "$default":
             raise InvalidResourceException(self.logical_id, "Stages cannot be named $default for WebSocket APIs.")
-        stage_name_prefix = self.stage_name if isinstance(self.stage_name, str) else ""
+        stage_name_prefix = self.stage_config.stage_name if isinstance(self.stage_config.stage_name, str) else ""
         # This is also altered in that the original checks for alphanumeric because the $ in $default would make that false
         stage_logical_id = (
             self.logical_id + stage_name_prefix + "Stage"
@@ -357,7 +371,7 @@ class WebSocketApiGenerator(ApiV2Generator):
         # since this is no longer the API Gateway default stage exactly (that would be $default) I change it to be just DefaultStage
         stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
         stage.ApiId = ref(self.logical_id)
-        stage.StageName = self.stage_name
+        stage.StageName = self.stage_config.stage_name
         stage.StageVariables = self.stage_config.stage_variables
         stage.AccessLogSettings = self.stage_config.access_log_settings
         stage.DefaultRouteSettings = self.route_config.default_route_settings
@@ -381,7 +395,7 @@ class WebSocketApiGenerator(ApiV2Generator):
 
         auth = None
         route_logical_ids: list[str] = []
-        for key, value in self.routes.items():
+        for key, value in self.api_config.routes.items():
             apigw_route, apigw_integration, permission, apigw_auth = self._construct_route_infr(key, value)
             # We keep all related route-integration-permission combos together
             generated_resources_list.append(apigw_route)

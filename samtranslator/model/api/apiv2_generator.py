@@ -18,6 +18,7 @@ class StageConfig:
     stage_variables: dict[str, Intrinsicable[str]] | None = None
     access_log_settings: dict[str, Intrinsicable[str]] | None = None
     tags: dict[str, Intrinsicable[str]] | None = None
+    stage_name: Intrinsicable[str] | None = None
 
 
 @dataclass
