@@ -1356,7 +1356,7 @@ class ApiGenerator:
 
         self.definition_body = self._openapi_postprocess(swagger_editor.swagger)
 
-    def _openapi_postprocess(self, definition_body: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
+    def _openapi_postprocess(self, definition_body: dict[str, Any]) -> dict[str, Any]:
         """
         Convert definitions to openapi 3 in definition body if OpenApiVersion flag is specified.
 
@@ -1366,84 +1366,99 @@ class ApiGenerator:
         if definition_body.get("swagger") is not None:
             return definition_body
 
-        if self.feature_toggle and self.feature_toggle.is_enabled(FEATURE_FLAG_NORMALIZED_OPENAPI_VERSION):
-            normalized_open_api_version = definition_body.get("openapi", self.open_api_version)
-        elif definition_body.get("openapi") is not None and self.open_api_version is None:
-            normalized_open_api_version = definition_body.get("openapi")
-        else:
-            normalized_open_api_version = self.open_api_version
+        normalized_open_api_version = self._normalize_openapi_version(definition_body)
 
         if normalized_open_api_version and SwaggerEditor.safe_compare_regex_with_string(
             SwaggerEditor._OPENAPI_VERSION_3_REGEX, normalized_open_api_version
         ):
-            if definition_body.get("securityDefinitions"):
-                components = definition_body.get("components", Py27Dict())
-                # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
-                # property is not in definition_body dict, but if it exist, and its value is None, so None will be
-                # returned and not the default value. That is why the below line is required.
-                components = components if components else Py27Dict()
-                components["securitySchemes"] = definition_body["securityDefinitions"]
-                definition_body["components"] = components
-                del definition_body["securityDefinitions"]
-            if definition_body.get("definitions"):
-                components = definition_body.get("components", Py27Dict())
-                # the following line to check if components is None
-                # is copied from the previous if...
-                # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
-                # property is not in definition_body dict, but if it exist, and its value is None, so None will be
-                # returned and not the default value. That is why the below line is required.
-                components = components if components else Py27Dict()
-                components["schemas"] = definition_body["definitions"]
-                definition_body["components"] = components
-                del definition_body["definitions"]
-            # removes `consumes` and `produces` options for CORS in openapi3 and
-            # adds `schema` for the headers in responses for openapi3
-            paths = definition_body.get("paths")
-            if paths:
-                SwaggerEditor.validate_is_dict(
-                    paths,
-                    "Value of paths must be a dictionary according to Swagger spec.",
-                )
-                for path, path_item in paths.items():
-                    SwaggerEditor.validate_path_item_is_dict(path_item, path)
-                    if path_item.get("options"):
-                        SwaggerEditor.validate_is_dict(
-                            path_item.get("options"),
-                            f"Value of options method for path {path} must be a "
-                            "dictionary according to Swagger spec.",
-                        )
-                        options = path_item.get("options").copy()
-                        for field, field_val in options.items():
-                            # remove unsupported produces and consumes in options for openapi3
-                            if field in ["produces", "consumes"]:
-                                del definition_body["paths"][path]["options"][field]
-                            # add schema for the headers in options section for openapi3
-                            if field in ["responses"]:
-                                try:
-                                    response_200_headers = dict_deep_get(field_val, "200.headers")
-                                except InvalidValueType as ex:
-                                    raise InvalidDocumentException(
-                                        [
-                                            InvalidTemplateException(
-                                                f"Invalid responses in options method for path {path}: {ex!s}.",
-                                            )
-                                        ]
-                                    ) from ex
-                                if not response_200_headers:
-                                    continue
-                                SwaggerEditor.validate_is_dict(
-                                    response_200_headers,
-                                    f"Value of response's headers in options method for path {path} must be a "
-                                    "dictionary according to Swagger spec.",
-                                )
-                                for header, header_val in response_200_headers.items():
-                                    new_header_val_with_schema = Py27Dict()
-                                    new_header_val_with_schema["schema"] = header_val
-                                    definition_body["paths"][path]["options"][field]["200"]["headers"][
-                                        header
-                                    ] = new_header_val_with_schema
+            self._migrate_security_definitions(definition_body)
+            self._migrate_definitions_to_schemas(definition_body)
+            self._process_openapi_paths(definition_body)
 
         return definition_body
+
+    def _normalize_openapi_version(self, definition_body: dict[str, Any]) -> Any:
+        if self.feature_toggle and self.feature_toggle.is_enabled(FEATURE_FLAG_NORMALIZED_OPENAPI_VERSION):
+            return definition_body.get("openapi", self.open_api_version)
+        if definition_body.get("openapi") is not None and self.open_api_version is None:
+            return definition_body.get("openapi")
+        return self.open_api_version
+
+    def _migrate_security_definitions(self, definition_body: dict[str, Any]) -> None:
+        if not definition_body.get("securityDefinitions"):
+            return
+        components = definition_body.get("components", Py27Dict())
+        # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
+        # property is not in definition_body dict, but if it exist, and its value is None, so None will be
+        # returned and not the default value. That is why the below line is required.
+        components = components if components else Py27Dict()
+        components["securitySchemes"] = definition_body["securityDefinitions"]
+        definition_body["components"] = components
+        del definition_body["securityDefinitions"]
+
+    def _migrate_definitions_to_schemas(self, definition_body: dict[str, Any]) -> None:
+        if not definition_body.get("definitions"):
+            return
+        components = definition_body.get("components", Py27Dict())
+        # the following line to check if components is None
+        # is copied from the previous if...
+        # In the previous line, the default value `Py27Dict()` will be only returned only if `components`
+        # property is not in definition_body dict, but if it exist, and its value is None, so None will be
+        # returned and not the default value. That is why the below line is required.
+        components = components if components else Py27Dict()
+        components["schemas"] = definition_body["definitions"]
+        definition_body["components"] = components
+        del definition_body["definitions"]
+
+    def _process_openapi_paths(self, definition_body: dict[str, Any]) -> None:
+        # removes `consumes` and `produces` options for CORS in openapi3 and
+        # adds `schema` for the headers in responses for openapi3
+        paths = definition_body.get("paths")
+        if not paths:
+            return
+        SwaggerEditor.validate_is_dict(
+            paths,
+            "Value of paths must be a dictionary according to Swagger spec.",
+        )
+        for path, path_item in paths.items():
+            SwaggerEditor.validate_path_item_is_dict(path_item, path)
+            if not path_item.get("options"):
+                continue
+            SwaggerEditor.validate_is_dict(
+                path_item.get("options"),
+                f"Value of options method for path {path} must be a "
+                "dictionary according to Swagger spec.",
+            )
+            options = path_item.get("options").copy()
+            for field, field_val in options.items():
+                # remove unsupported produces and consumes in options for openapi3
+                if field in ["produces", "consumes"]:
+                    del definition_body["paths"][path]["options"][field]
+                # add schema for the headers in options section for openapi3
+                if field in ["responses"]:
+                    try:
+                        response_200_headers = dict_deep_get(field_val, "200.headers")
+                    except InvalidValueType as ex:
+                        raise InvalidDocumentException(
+                            [
+                                InvalidTemplateException(
+                                    f"Invalid responses in options method for path {path}: {ex!s}.",
+                                )
+                            ]
+                        ) from ex
+                    if not response_200_headers:
+                        continue
+                    SwaggerEditor.validate_is_dict(
+                        response_200_headers,
+                        f"Value of response's headers in options method for path {path} must be a "
+                        "dictionary according to Swagger spec.",
+                    )
+                    for header, header_val in response_200_headers.items():
+                        new_header_val_with_schema = Py27Dict()
+                        new_header_val_with_schema["schema"] = header_val
+                        definition_body["paths"][path]["options"][field]["200"]["headers"][
+                            header
+                        ] = new_header_val_with_schema
 
     def _get_authorizers(self, authorizers_config, default_authorizer=None):  # type: ignore[no-untyped-def]
         # The dict below will eventually become part of swagger/openapi definition, thus requires using Py27Dict()
