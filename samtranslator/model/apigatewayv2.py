@@ -183,6 +183,30 @@ class ApiGatewayV2WSAuthorizer(Resource):
     }
 
 
+class _AuthorizerProperties:
+    def __init__(  # type: ignore[no-untyped-def]
+        self,
+        authorization_scopes=None,
+        jwt_configuration=None,
+        id_source=None,
+        function_arn=None,
+        function_invoke_role=None,
+        identity=None,
+        authorizer_payload_format_version=None,
+        enable_simple_responses=None,
+        enable_function_default_permissions=None,
+    ):
+        self.authorization_scopes = authorization_scopes
+        self.jwt_configuration = jwt_configuration
+        self.id_source = id_source
+        self.function_arn = function_arn
+        self.function_invoke_role = function_invoke_role
+        self.identity = identity
+        self.authorizer_payload_format_version = authorizer_payload_format_version
+        self.enable_simple_responses = enable_simple_responses
+        self.enable_function_default_permissions = enable_function_default_permissions
+
+
 class ApiGatewayV2Authorizer:
     def __init__(  # type: ignore[no-untyped-def] # noqa: PLR0913
         self,
@@ -204,16 +228,18 @@ class ApiGatewayV2Authorizer:
         """
         self.api_logical_id = api_logical_id
         self.name = name
-        self.authorization_scopes = authorization_scopes
-        self.jwt_configuration: JwtConfiguration | None = self._get_jwt_configuration(jwt_configuration, api_logical_id)
-        self.id_source = id_source
-        self.function_arn = function_arn
-        self.function_invoke_role = function_invoke_role
-        self.identity = identity
-        self.authorizer_payload_format_version = authorizer_payload_format_version
-        self.enable_simple_responses = enable_simple_responses
         self.is_aws_iam_authorizer = is_aws_iam_authorizer
-        self.enable_function_default_permissions = enable_function_default_permissions
+        self._props = _AuthorizerProperties(
+            authorization_scopes=authorization_scopes,
+            jwt_configuration=self._get_jwt_configuration(jwt_configuration, api_logical_id),
+            id_source=id_source,
+            function_arn=function_arn,
+            function_invoke_role=function_invoke_role,
+            identity=identity,
+            authorizer_payload_format_version=authorizer_payload_format_version,
+            enable_simple_responses=enable_simple_responses,
+            enable_function_default_permissions=enable_function_default_permissions,
+        )
 
         self._validate_input_parameters()
 
@@ -232,6 +258,42 @@ class ApiGatewayV2Authorizer:
                 api_logical_id,
                 f"Authorizers.{name}.EnableFunctionDefaultPermissions",
             ).to_be_a_bool()
+
+    @property
+    def authorization_scopes(self):
+        return self._props.authorization_scopes
+
+    @property
+    def jwt_configuration(self):
+        return self._props.jwt_configuration
+
+    @property
+    def id_source(self):
+        return self._props.id_source
+
+    @property
+    def function_arn(self):
+        return self._props.function_arn
+
+    @property
+    def function_invoke_role(self):
+        return self._props.function_invoke_role
+
+    @property
+    def identity(self):
+        return self._props.identity
+
+    @property
+    def authorizer_payload_format_version(self):
+        return self._props.authorizer_payload_format_version
+
+    @property
+    def enable_simple_responses(self):
+        return self._props.enable_simple_responses
+
+    @property
+    def enable_function_default_permissions(self):
+        return self._props.enable_function_default_permissions
 
     def _get_auth_type(self) -> str:
         if self.is_aws_iam_authorizer:
