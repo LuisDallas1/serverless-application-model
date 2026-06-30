@@ -1,6 +1,6 @@
 import logging
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Union, cast
 
 from samtranslator.feature_toggle.feature_toggle import FeatureToggle
@@ -90,6 +90,14 @@ class ApiDomainResponseV2:
     domain_access_association: Any
 
 
+@dataclass
+class _CombinedResourceAttributes:
+    conditions: set[str] = field(default_factory=set)
+    any_api_without_condition: bool = False
+    deletion_policy: str | None = None
+    update_replace_policy: str | None = None
+
+
 class SharedApiUsagePlan:
     """
     Collects API information from different API resources in the same template,
@@ -105,10 +113,7 @@ class SharedApiUsagePlan:
         self.depends_on_shared: list[str] = []
 
         # shared resource level attributes
-        self.conditions: set[str] = set()
-        self.any_api_without_condition = False
-        self.deletion_policy: str | None = None
-        self.update_replace_policy: str | None = None
+        self.resource_attrs = _CombinedResourceAttributes()
 
     def get_combined_resource_attributes(self, resource_attributes, conditions):  # type: ignore[no-untyped-def]
         """
@@ -127,57 +132,57 @@ class SharedApiUsagePlan:
         self._set_condition(resource_attributes.get("Condition"), conditions)  # type: ignore[no-untyped-call]
 
         combined_resource_attributes = {}
-        if self.deletion_policy:
-            combined_resource_attributes["DeletionPolicy"] = self.deletion_policy
-        if self.update_replace_policy:
-            combined_resource_attributes["UpdateReplacePolicy"] = self.update_replace_policy
+        if self.resource_attrs.deletion_policy:
+            combined_resource_attributes["DeletionPolicy"] = self.resource_attrs.deletion_policy
+        if self.resource_attrs.update_replace_policy:
+            combined_resource_attributes["UpdateReplacePolicy"] = self.resource_attrs.update_replace_policy
         # do not set Condition if any of the API resource does not have Condition in it
-        if self.conditions and not self.any_api_without_condition:
+        if self.resource_attrs.conditions and not self.resource_attrs.any_api_without_condition:
             combined_resource_attributes["Condition"] = SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME
 
         return combined_resource_attributes
 
     def _set_deletion_policy(self, deletion_policy):  # type: ignore[no-untyped-def]
         if deletion_policy:
-            if self.deletion_policy:
+            if self.resource_attrs.deletion_policy:
                 # update only if new deletion policy is Retain
                 if deletion_policy == "Retain":
-                    self.deletion_policy = deletion_policy
+                    self.resource_attrs.deletion_policy = deletion_policy
             else:
-                self.deletion_policy = deletion_policy
+                self.resource_attrs.deletion_policy = deletion_policy
 
     def _set_update_replace_policy(self, update_replace_policy):  # type: ignore[no-untyped-def]
         if update_replace_policy:
-            if self.update_replace_policy:
+            if self.resource_attrs.update_replace_policy:
                 # if new value is Retain or
                 # new value is retain and current value is Delete then update its value
                 if (update_replace_policy == "Retain") or (
-                    update_replace_policy == "Snapshot" and self.update_replace_policy == "Delete"
+                    update_replace_policy == "Snapshot" and self.resource_attrs.update_replace_policy == "Delete"
                 ):
-                    self.update_replace_policy = update_replace_policy
+                    self.resource_attrs.update_replace_policy = update_replace_policy
             else:
-                self.update_replace_policy = update_replace_policy
+                self.resource_attrs.update_replace_policy = update_replace_policy
 
     def _set_condition(self, condition, template_conditions):  # type: ignore[no-untyped-def]
         # if there are any API without condition, then skip
-        if self.any_api_without_condition:
+        if self.resource_attrs.any_api_without_condition:
             return
 
-        if condition and condition not in self.conditions:
+        if condition and condition not in self.resource_attrs.conditions:
             if template_conditions is None:
                 raise InvalidTemplateException(
                     "Can't have condition without having 'Conditions' section in the template"
                 )
 
-            if self.conditions:
-                self.conditions.add(condition)
-                or_condition = make_or_condition(self.conditions)
+            if self.resource_attrs.conditions:
+                self.resource_attrs.conditions.add(condition)
+                or_condition = make_or_condition(self.resource_attrs.conditions)
                 template_conditions[SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME] = or_condition
             else:
-                self.conditions.add(condition)
+                self.resource_attrs.conditions.add(condition)
                 template_conditions[SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME] = condition
         elif condition is None:
-            self.any_api_without_condition = True
+            self.resource_attrs.any_api_without_condition = True
             if template_conditions and SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME in template_conditions:
                 del template_conditions[SharedApiUsagePlan.SHARED_USAGE_PLAN_CONDITION_NAME]
 
