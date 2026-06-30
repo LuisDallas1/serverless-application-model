@@ -848,7 +848,7 @@ class Api(PushEventSource):
 
         return self._construct_permission(resources_to_link["function"], source_arn=source_arn, suffix=suffix)  # type: ignore[no-untyped-call]
 
-    def _add_swagger_integration(  # type: ignore[no-untyped-def] # noqa: PLR0912, PLR0915
+    def _add_swagger_integration(  # type: ignore[no-untyped-def]
         self, api, api_id, function, intrinsics_resolver
     ):
         """Adds the path and method for this Api event source to the Swagger body for the provided RestApi.
@@ -906,127 +906,130 @@ class Api(PushEventSource):
         if self.TimeoutInMillis:
             editor.add_timeout_to_method(api=api, path=self.Path, method_name=self.Method, timeout=self.TimeoutInMillis)
 
-        if self.RequestModel:
-            sam_expect(self.RequestModel, self.relative_id, "RequestModel", is_sam_event=True).to_be_a_map()
-            method_model = self.RequestModel.get("Model")
+        self._add_request_model_to_swagger(editor, api)
 
-            if method_model:
-                api_models = api.get("Models")
-                if not api_models:
-                    raise InvalidEventException(
-                        self.relative_id,
-                        f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                        "because the related API does not define any Models.",
-                    )
-                if not is_intrinsic(api_models) and not isinstance(api_models, dict):
-                    raise InvalidEventException(
-                        self.relative_id,
-                        f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                        "because the related API Models defined is of invalid type.",
-                    )
-                if not isinstance(method_model, str):
-                    raise InvalidEventException(
-                        self.relative_id,
-                        f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                        "because the related API does not contain valid Models.",
-                    )
-
-                if not api_models.get(method_model):
-                    raise InvalidEventException(
-                        self.relative_id,
-                        f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                        "because it wasn't defined in the API's Models.",
-                    )
-
-                editor.add_request_model_to_method(  # type: ignore[no-untyped-call]
-                    path=self.Path, method_name=self.Method, request_model=self.RequestModel
-                )
-
-                validate_body = self.RequestModel.get("ValidateBody")
-                validate_parameters = self.RequestModel.get("ValidateParameters")
-
-                # Checking if any of the fields are defined as it can be false we are checking if the field are not None
-                if validate_body is not None or validate_parameters is not None:
-                    # as we are setting two different fields we are here setting as default False
-                    # In case one of them are not defined
-                    validate_body = False if validate_body is None else validate_body
-                    validate_parameters = False if validate_parameters is None else validate_parameters
-
-                    # If not type None but any other type it should explicitly invalidate the Spec
-                    # Those fields should be only a boolean
-                    if not isinstance(validate_body, bool) or not isinstance(validate_parameters, bool):
-                        raise InvalidEventException(
-                            self.relative_id,
-                            f"Unable to set Validator to RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                            "ValidateBody and ValidateParameters must be a boolean type, strings or intrinsics are not supported.",
-                        )
-
-                    editor.add_request_validator_to_method(  # type: ignore[no-untyped-call]
-                        path=self.Path,
-                        method_name=self.Method,
-                        validate_body=validate_body,
-                        validate_parameters=validate_parameters,
-                    )
-
-        if self.RequestParameters:
-            default_value = {"Required": False, "Caching": False}
-
-            parameters = []
-            for parameter in self.RequestParameters:
-                if isinstance(parameter, dict):
-                    parameter_name, parameter_value = next(iter(parameter.items()))
-
-                    if not re.match(r"method\.request\.(querystring|path|header)\.", parameter_name):
-                        raise InvalidEventException(
-                            self.relative_id,
-                            "Invalid value for 'RequestParameters' property. Keys must be in the format "
-                            "'method.request.[querystring|path|header].{value}', "
-                            "e.g 'method.request.header.Authorization'.",
-                        )
-
-                    if not isinstance(parameter_value, dict) or not all(
-                        key in REQUEST_PARAMETER_PROPERTIES for key in parameter_value
-                    ):
-                        raise InvalidEventException(
-                            self.relative_id,
-                            "Invalid value for 'RequestParameters' property. Values must be an object, "
-                            "e.g { Required: true, Caching: false }",
-                        )
-
-                    settings = default_value.copy()
-                    settings.update(parameter_value)
-                    settings.update({"Name": parameter_name})
-
-                    parameters.append(settings)
-
-                elif isinstance(parameter, str):
-                    if not re.match(r"method\.request\.(querystring|path|header)\.", parameter):
-                        raise InvalidEventException(
-                            self.relative_id,
-                            "Invalid value for 'RequestParameters' property. Keys must be in the format "
-                            "'method.request.[querystring|path|header].{value}', "
-                            "e.g 'method.request.header.Authorization'.",
-                        )
-
-                    settings = default_value.copy()
-                    settings.update({"Name": parameter})  # type: ignore[dict-item]
-
-                    parameters.append(settings)
-
-                else:
-                    raise InvalidEventException(
-                        self.relative_id,
-                        "Invalid value for 'RequestParameters' property. Property must be either a string or an object",
-                    )
-
-            editor.add_request_parameters_to_method(  # type: ignore[no-untyped-call]
-                path=self.Path, method_name=self.Method, request_parameters=parameters
-            )
+        self._add_request_parameters_to_swagger(editor)
 
         if merge_definitions:
             api["DefinitionBody"] = self._get_merged_definitions(api_id, api["DefinitionBody"], editor)
         else:
             api["DefinitionBody"] = editor.swagger
+
+    def _add_request_model_to_swagger(self, editor, api):
+        if not self.RequestModel:
+            return
+        sam_expect(self.RequestModel, self.relative_id, "RequestModel", is_sam_event=True).to_be_a_map()
+        method_model = self.RequestModel.get("Model")
+
+        if method_model:
+            api_models = api.get("Models")
+            if not api_models:
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because the related API does not define any Models.",
+                )
+            if not is_intrinsic(api_models) and not isinstance(api_models, dict):
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because the related API Models defined is of invalid type.",
+                )
+            if not isinstance(method_model, str):
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because the related API does not contain valid Models.",
+                )
+
+            if not api_models.get(method_model):
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because it wasn't defined in the API's Models.",
+                )
+
+            editor.add_request_model_to_method(  # type: ignore[no-untyped-call]
+                path=self.Path, method_name=self.Method, request_model=self.RequestModel
+            )
+
+            validate_body = self.RequestModel.get("ValidateBody")
+            validate_parameters = self.RequestModel.get("ValidateParameters")
+
+            if validate_body is not None or validate_parameters is not None:
+                validate_body = False if validate_body is None else validate_body
+                validate_parameters = False if validate_parameters is None else validate_parameters
+
+                if not isinstance(validate_body, bool) or not isinstance(validate_parameters, bool):
+                    raise InvalidEventException(
+                        self.relative_id,
+                        f"Unable to set Validator to RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                        "ValidateBody and ValidateParameters must be a boolean type, strings or intrinsics are not supported.",
+                    )
+
+                editor.add_request_validator_to_method(  # type: ignore[no-untyped-call]
+                    path=self.Path,
+                    method_name=self.Method,
+                    validate_body=validate_body,
+                    validate_parameters=validate_parameters,
+                )
+
+    def _add_request_parameters_to_swagger(self, editor):
+        if not self.RequestParameters:
+            return
+        default_value = {"Required": False, "Caching": False}
+
+        parameters = []
+        for parameter in self.RequestParameters:
+            if isinstance(parameter, dict):
+                parameter_name, parameter_value = next(iter(parameter.items()))
+
+                if not re.match(r"method\.request\.(querystring|path|header)\.", parameter_name):
+                    raise InvalidEventException(
+                        self.relative_id,
+                        "Invalid value for 'RequestParameters' property. Keys must be in the format "
+                        "'method.request.[querystring|path|header].{value}', "
+                        "e.g 'method.request.header.Authorization'.",
+                    )
+
+                if not isinstance(parameter_value, dict) or not all(
+                    key in REQUEST_PARAMETER_PROPERTIES for key in parameter_value
+                ):
+                    raise InvalidEventException(
+                        self.relative_id,
+                        "Invalid value for 'RequestParameters' property. Values must be an object, "
+                        "e.g { Required: true, Caching: false }",
+                    )
+
+                settings = default_value.copy()
+                settings.update(parameter_value)
+                settings.update({"Name": parameter_name})
+
+                parameters.append(settings)
+
+            elif isinstance(parameter, str):
+                if not re.match(r"method\.request\.(querystring|path|header)\.", parameter):
+                    raise InvalidEventException(
+                        self.relative_id,
+                        "Invalid value for 'RequestParameters' property. Keys must be in the format "
+                        "'method.request.[querystring|path|header].{value}', "
+                        "e.g 'method.request.header.Authorization'.",
+                    )
+
+                settings = default_value.copy()
+                settings.update({"Name": parameter})  # type: ignore[dict-item]
+
+                parameters.append(settings)
+
+            else:
+                raise InvalidEventException(
+                    self.relative_id,
+                    "Invalid value for 'RequestParameters' property. Property must be either a string or an object",
+                )
+
+        editor.add_request_parameters_to_method(  # type: ignore[no-untyped-call]
+            path=self.Path, method_name=self.Method, request_parameters=parameters
+        )
 
     def _get_merged_definitions(
         self,
@@ -1074,7 +1077,102 @@ class Api(PushEventSource):
         return rest_api_id["Ref"] if isinstance(rest_api_id, dict) and "Ref" in rest_api_id else rest_api_id
 
     @staticmethod
-    def add_auth_to_swagger(  # noqa: PLR0912, PLR0913
+    def _validate_authorizer(
+        event_auth: dict[str, Any],
+        api_auth: dict[str, Any],
+        api_id: str,
+        event_id: str,
+        method: str,
+        path: str,
+    ) -> None:
+        method_authorizer = event_auth.get("Authorizer")
+        if not method_authorizer:
+            return
+
+        api_authorizers = api_auth and api_auth.get("Authorizers")
+
+        if api_authorizers:
+            sam_expect(api_authorizers, api_id, "Auth.Authorizers").to_be_a_map()
+
+        if method_authorizer == "AWS_IAM":
+            return
+
+        if method_authorizer == "NONE":
+            _check_valid_authorizer_types(event_id, method, path, method_authorizer, api_authorizers, False)
+            if not api_auth or not api_auth.get("DefaultAuthorizer"):
+                raise InvalidEventException(
+                    event_id,
+                    f"Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
+                    "is only a valid value when a DefaultAuthorizer on the API is specified.",
+                )
+            return
+
+        if not api_authorizers:
+            raise InvalidEventException(
+                event_id,
+                f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
+                "because the related API does not define any Authorizers.",
+            )
+
+        _check_valid_authorizer_types(event_id, method, path, method_authorizer, api_authorizers, False)
+
+        if not api_authorizers.get(method_authorizer):
+            raise InvalidEventException(
+                event_id,
+                f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
+                "because it wasn't defined in the API's Authorizers.",
+            )
+
+    @staticmethod
+    def _validate_authorization_scopes(
+        event_auth: dict[str, Any],
+        method_authorizer: Any,
+        event_id: str,
+    ) -> None:
+        auth_scopes = event_auth.get("AuthorizationScopes")
+        if not auth_scopes:
+            return
+
+        sam_expect(auth_scopes, event_id, "Auth.AuthorizationScopes", is_sam_event=True).to_be_a_list()
+        if not method_authorizer:
+            raise InvalidEventException(event_id, "AuthorizationScopes works only when Authorizer is set")
+
+    @staticmethod
+    def _validate_api_key_required(
+        event_auth: dict[str, Any],
+        api_auth: dict[str, Any],
+        event_id: str,
+        method: str,
+        path: str,
+    ) -> None:
+        apikey_required_setting = event_auth.get("ApiKeyRequired")
+        apikey_required_setting_is_false = apikey_required_setting is not None and not apikey_required_setting
+        if apikey_required_setting_is_false and (not api_auth or not api_auth.get("ApiKeyRequired")):
+            raise InvalidEventException(
+                event_id,
+                f"Unable to set ApiKeyRequired [False] on API method [{method}] for path [{path}] "
+                "because the related API does not specify any ApiKeyRequired.",
+            )
+
+    @staticmethod
+    def _handle_resource_policy(
+        event_auth: dict[str, Any],
+        editor: SwaggerEditor,
+        path: str,
+        stage: str,
+        event_id: str,
+    ) -> None:
+        resource_policy = event_auth.get("ResourcePolicy")
+        if not resource_policy:
+            return
+
+        sam_expect(resource_policy, event_id, "Auth.ResourcePolicy").to_be_a_map()
+        editor.add_resource_policy(resource_policy=resource_policy, path=path, stage=stage)
+        if resource_policy.get("CustomStatements"):
+            editor.add_custom_statements(resource_policy.get("CustomStatements"))  # type: ignore[no-untyped-call]
+
+    @staticmethod
+    def add_auth_to_swagger(
         event_auth: dict[str, Any],
         api: dict[str, Any],
         api_id: str,
@@ -1089,67 +1187,14 @@ class Api(PushEventSource):
         api_auth = api.get("Auth")
         api_auth = intrinsics_resolver.resolve_parameter_refs(api_auth)
 
-        if method_authorizer:
-            api_authorizers = api_auth and api_auth.get("Authorizers")
+        Api._validate_authorizer(event_auth, api_auth, api_id, event_id, method, path)
+        Api._validate_authorization_scopes(event_auth, method_authorizer, event_id)
+        Api._validate_api_key_required(event_auth, api_auth, event_id, method, path)
 
-            if api_authorizers:
-                sam_expect(api_authorizers, api_id, "Auth.Authorizers").to_be_a_map()
-
-            if method_authorizer != "AWS_IAM":
-                if method_authorizer != "NONE":
-                    if not api_authorizers:
-                        raise InvalidEventException(
-                            event_id,
-                            f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
-                            "because the related API does not define any Authorizers.",
-                        )
-
-                    _check_valid_authorizer_types(  # type: ignore[no-untyped-call]
-                        event_id, method, path, method_authorizer, api_authorizers, False
-                    )
-
-                    if not api_authorizers.get(method_authorizer):
-                        raise InvalidEventException(
-                            event_id,
-                            f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
-                            "because it wasn't defined in the API's Authorizers.",
-                        )
-                else:
-                    _check_valid_authorizer_types(  # type: ignore[no-untyped-call]
-                        event_id, method, path, method_authorizer, api_authorizers, False
-                    )
-                    if not api_auth or not api_auth.get("DefaultAuthorizer"):
-                        raise InvalidEventException(
-                            event_id,
-                            f"Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
-                            "is only a valid value when a DefaultAuthorizer on the API is specified.",
-                        )
-
-        auth_scopes = event_auth.get("AuthorizationScopes")
-
-        if auth_scopes:
-            sam_expect(auth_scopes, event_id, "Auth.AuthorizationScopes", is_sam_event=True).to_be_a_list()
-            if not method_authorizer:
-                raise InvalidEventException(event_id, "AuthorizationScopes works only when Authorizer is set")
-
-        apikey_required_setting = event_auth.get("ApiKeyRequired")
-        apikey_required_setting_is_false = apikey_required_setting is not None and not apikey_required_setting
-        if apikey_required_setting_is_false and (not api_auth or not api_auth.get("ApiKeyRequired")):
-            raise InvalidEventException(
-                event_id,
-                f"Unable to set ApiKeyRequired [False] on API method [{method}] for path [{path}] "
-                "because the related API does not specify any ApiKeyRequired.",
-            )
-
-        if method_authorizer or apikey_required_setting is not None:
+        if method_authorizer or event_auth.get("ApiKeyRequired") is not None:
             editor.add_auth_to_method(api=api, path=path, method_name=method, auth=event_auth)
 
-        resource_policy = event_auth.get("ResourcePolicy")
-        if resource_policy:
-            sam_expect(resource_policy, event_id, "Auth.ResourcePolicy").to_be_a_map()
-            editor.add_resource_policy(resource_policy=resource_policy, path=path, stage=stage)
-            if resource_policy.get("CustomStatements"):
-                editor.add_custom_statements(resource_policy.get("CustomStatements"))  # type: ignore[no-untyped-call]
+        Api._handle_resource_policy(event_auth, editor, path, stage, event_id)
 
 
 class AlexaSkill(PushEventSource):

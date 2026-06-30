@@ -303,7 +303,7 @@ class SamFunction(SamResourceMacro):
             raise InvalidResourceException(self.logical_id, e.message) from e
 
     @cw_timer
-    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def] # noqa: PLR0915, PLR0912
+    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def] # noqa: PLR0912
         """Returns the Lambda function, role, and event resources to which this SAM Function corresponds.
 
         :param dict kwargs: already-converted resources that may need to be modified when converting this \
@@ -331,6 +331,55 @@ class SamFunction(SamResourceMacro):
         lambda_function = self._construct_lambda_function(intrinsics_resolver)
         resources.append(lambda_function)
 
+        lambda_alias, alias_name = self._handle_auto_publish_alias(
+            lambda_function, intrinsics_resolver, resource_resolver, resources
+        )
+
+        resources.extend(self._construct_function_url_resources(lambda_function, lambda_alias))
+
+        self._validate_deployment_preference_and_add_update_policy(
+            kwargs.get("deployment_preference_collection"),
+            lambda_alias,
+            intrinsics_resolver,
+            cast(IntrinsicsResolver, mappings_resolver),  # TODO: better handle mappings_resolver's Optional
+            self.get_passthrough_resource_attributes(),
+            feature_toggle,
+        )
+        event_invoke_policies: list[dict[str, Any]] = []
+        if self.EventInvokeConfig:
+            function_name = lambda_function.logical_id
+            event_invoke_resources, event_invoke_policies = self._construct_event_invoke_config(
+                function_name, alias_name, lambda_alias, intrinsics_resolver, conditions, self.EventInvokeConfig
+            )
+            resources.extend(event_invoke_resources)
+
+        execution_role = self._handle_execution_role(
+            lambda_function, intrinsics_resolver, event_invoke_policies, conditions, resources, kwargs
+        )
+
+        try:
+            resources += self._generate_event_resources(
+                lambda_function,
+                execution_role,
+                kwargs["event_resources"],
+                intrinsics_resolver,
+                lambda_alias=lambda_alias,
+                original_template=kwargs.get("original_template"),
+            )
+        except InvalidEventException as e:
+            raise InvalidResourceException(self.logical_id, e.message) from e
+
+        self.propagate_tags(resources, self.Tags, self.PropagateTags)
+
+        return resources
+
+    def _handle_auto_publish_alias(
+        self,
+        lambda_function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        resource_resolver: ResourceResolver,
+        resources: list[Any],
+    ) -> tuple[LambdaAlias | None, str]:
         if self.ProvisionedConcurrencyConfig and not self.AutoPublishAlias:
             raise InvalidResourceException(
                 self.logical_id,
@@ -349,10 +398,6 @@ class SamFunction(SamResourceMacro):
                         self.logical_id,
                         "AutoPublishCodeSha256 must be a string",
                     )
-                # Lambda doesn't create a new version if the code in the unpublished version is the same as the
-                # previous published version. To address situations where users modify only the 'CodeUri' content,
-                # CloudFormation might not detect any changes in the Lambda function within the template, leading
-                # to deployment issues. To resolve this, we'll append codesha256 value to the description.
                 description = intrinsics_resolver.resolve_parameter_refs(self.Description)
                 if not description or isinstance(description, str):
                     lambda_function.Description = f"{description} {code_sha256}" if description else code_sha256
@@ -368,33 +413,17 @@ class SamFunction(SamResourceMacro):
             resources.append(lambda_version)
             resources.append(lambda_alias)
 
-        if self.FunctionUrlConfig:
-            lambda_url = self._construct_function_url(lambda_function, lambda_alias, self.FunctionUrlConfig)
-            resources.append(lambda_url)
-            url_permission = self._construct_url_permission(lambda_function, lambda_alias, self.FunctionUrlConfig)
-            invoke_dual_auth_permission = self._construct_invoke_permission(
-                lambda_function, lambda_alias, self.FunctionUrlConfig
-            )
-            if url_permission and invoke_dual_auth_permission:
-                resources.append(url_permission)
-                resources.append(invoke_dual_auth_permission)
+        return lambda_alias, alias_name
 
-        self._validate_deployment_preference_and_add_update_policy(
-            kwargs.get("deployment_preference_collection"),
-            lambda_alias,
-            intrinsics_resolver,
-            cast(IntrinsicsResolver, mappings_resolver),  # TODO: better handle mappings_resolver's Optional
-            self.get_passthrough_resource_attributes(),
-            feature_toggle,
-        )
-        event_invoke_policies: list[dict[str, Any]] = []
-        if self.EventInvokeConfig:
-            function_name = lambda_function.logical_id
-            event_invoke_resources, event_invoke_policies = self._construct_event_invoke_config(
-                function_name, alias_name, lambda_alias, intrinsics_resolver, conditions, self.EventInvokeConfig
-            )
-            resources.extend(event_invoke_resources)
-
+    def _handle_execution_role(
+        self,
+        lambda_function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        event_invoke_policies: list[dict[str, Any]],
+        conditions: dict[str, Any],
+        resources: list[Any],
+        kwargs: dict[str, Any],
+    ) -> IAMRole:
         managed_policy_map = kwargs.get("managed_policy_map", {})
         get_managed_policy_map = kwargs.get("get_managed_policy_map")
 
@@ -405,34 +434,9 @@ class SamFunction(SamResourceMacro):
             get_managed_policy_map,
         )
 
-        if lambda_function.Role is None:
-            lambda_function.Role = execution_role.get_runtime_attr("arn")
-            resources.append(execution_role)
-        elif is_intrinsic_if(lambda_function.Role):
-            role_changes = self._make_lambda_role(lambda_function, intrinsics_resolver, execution_role)
+        resources.extend(self._handle_lambda_role(lambda_function, intrinsics_resolver, execution_role, conditions))
 
-            if role_changes["lambda_role_value"] is not None:
-                lambda_function.Role = role_changes["lambda_role_value"]
-                resources.append(role_changes["iam_role_resource"])
-
-            if role_changes["new_condition"] is not None:
-                conditions.update(role_changes["new_condition"])
-
-        try:
-            resources += self._generate_event_resources(
-                lambda_function,
-                execution_role,
-                kwargs["event_resources"],
-                intrinsics_resolver,
-                lambda_alias=lambda_alias,
-                original_template=kwargs.get("original_template"),
-            )
-        except InvalidEventException as e:
-            raise InvalidResourceException(self.logical_id, e.message) from e
-
-        self.propagate_tags(resources, self.Tags, self.PropagateTags)
-
-        return resources
+        return execution_role
 
     def _make_lambda_role(
         self,
@@ -491,6 +495,30 @@ class SamFunction(SamResourceMacro):
             "new_condition": new_condition,
             "iam_role_resource": execution_role,
         }
+
+    def _handle_lambda_role(
+        self,
+        lambda_function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        execution_role: IAMRole,
+        conditions: dict[str, Any],
+    ) -> list[Any]:
+        role_resources: list[Any] = []
+
+        if lambda_function.Role is None:
+            lambda_function.Role = execution_role.get_runtime_attr("arn")
+            role_resources.append(execution_role)
+        elif is_intrinsic_if(lambda_function.Role):
+            role_changes = self._make_lambda_role(lambda_function, intrinsics_resolver, execution_role)
+
+            if role_changes["lambda_role_value"] is not None:
+                lambda_function.Role = role_changes["lambda_role_value"]
+                role_resources.append(role_changes["iam_role_resource"])
+
+            if role_changes["new_condition"] is not None:
+                conditions.update(role_changes["new_condition"])
+
+        return role_resources
 
     def _construct_event_invoke_config(
         self,
@@ -1131,62 +1159,19 @@ class SamFunction(SamResourceMacro):
         # Classic Lambda function - retain versions (existing behavior)
         return DeletionPolicy.RETAIN
 
-    def _construct_version(  # noqa: PLR0912
+    def _build_version_logical_id(
         self,
         function: LambdaFunction,
         intrinsics_resolver: IntrinsicsResolver,
         resource_resolver: ResourceResolver,
+        code_dict: dict,
+        prefix: str,
         code_sha256: str | None = None,
-    ) -> LambdaVersion:
-        """Constructs a Lambda Version resource that will be auto-published when CodeUri of the function changes.
-        Old versions will not be deleted without a direct reference from the CloudFormation template.
-
-        :param model.lambda_.LambdaFunction function: Lambda function object that is being connected to a version
-        :param model.intrinsics.resolver.IntrinsicsResolver intrinsics_resolver: Class that can help resolve
-            references to parameters present in CodeUri. It is a common usecase to set S3Key of Code to be a
-            template parameter. Need to resolve the values otherwise we will never detect a change in Code dict
-        :param str code_sha256: User predefined hash of the Lambda function code
-        :return: Lambda function Version resource
-        """
-        code_dict = function.Code
-        if not code_dict:
-            raise ValueError("Lambda function code must be a valid non-empty dictionary")
-
-        if not intrinsics_resolver:
-            raise ValueError("intrinsics_resolver is required for versions creation")
-
-        # Resolve references to template parameters before creating hash. This will *not* resolve all intrinsics
-        # because we cannot resolve runtime values like Arn of a resource. For purposes of detecting changes, this
-        # is good enough. Here is why:
-        #
-        # When using intrinsic functions there are two cases when has must change:
-        #   - Value of the template parameter changes
-        #   - (or) LogicalId of a referenced resource changes ie. !GetAtt NewResource.Arn
-        #
-        # Later case will already change the hash because some value in the Code dictionary changes. We handle the
-        # first case by resolving references to template parameters. It is okay even if these references are
-        # present inside another intrinsic such as !Join. The resolver will replace the reference with the parameter's
-        # value and keep all other parts of !Join identical. This will still trigger a change in the hash.
-        code_dict = intrinsics_resolver.resolve_parameter_refs(code_dict)
-
-        # Construct the LogicalID of Lambda version by appending 10 characters of SHA of CodeUri. This is necessary
-        # to trigger creation of a new version every time code location changes. Since logicalId changes, CloudFormation
-        # will drop the old version and create a new one for us. We set a DeletionPolicy on the version resource to
-        # prevent CloudFormation from actually deleting the underlying version resource
-        #
-        # SHA Collisions: For purposes of triggering a new update, we are concerned about just the difference previous
-        #                 and next hashes. The chances that two subsequent hashes collide is fairly low.
-        prefix = f"{self.logical_id}Version"
-        logical_dict = {}
-        # We can't directly change AutoPublishAlias as that would be a breaking change, so we have to add this opt-in
-        # property that when set to true would change the lambda version whenever a property in the lambda function changes
+    ) -> str:
+        logical_dict: dict = {}
         if self.AutoPublishAliasAllProperties:
             properties = function._generate_resource_dict().get("Properties", {})
 
-            # When a Lambda LayerVersion resource is updated, a new Lambda layer is created.
-            # However, we need the Lambda function to automatically create a new version
-            # and use the new layer. By setting the `PublishLambdaVersion` property to true,
-            # a new Lambda function version will be created when the layer version is updated.
             if function.Layers:
                 for layer in function.Layers:
                     layer_logical_id = get_logical_id_from_intrinsic(layer)
@@ -1210,19 +1195,46 @@ class SamFunction(SamResourceMacro):
                 logical_dict.update(function.Environment)
             if function.MemorySize:
                 logical_dict.update({"MemorySize": function.MemorySize})
-            # If SnapStart is enabled we want to publish a new version, to have the corresponding snapshot
             if function.SnapStart and function.SnapStart.get("ApplyOn", "None") != "None":
                 logical_dict.update({"SnapStart": function.SnapStart})
-        logical_id = logical_id_generator.LogicalIdGenerator(prefix, logical_dict, code_sha256).gen()
 
-        attributes = self.get_passthrough_resource_attributes()
+        return logical_id_generator.LogicalIdGenerator(prefix, logical_dict, code_sha256).gen()
+
+    def _apply_version_deletion_policy(self, attributes: dict) -> None:
         if "DeletionPolicy" not in attributes:
             if self.VersionDeletionPolicy is not None:
-                # User explicitly specified VersionDeletionPolicy
                 attributes["DeletionPolicy"] = self.VersionDeletionPolicy
             else:
-                # Use smart default based on function type
                 attributes["DeletionPolicy"] = self._get_default_version_deletion_policy()
+
+    def _construct_version(
+        self,
+        function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        resource_resolver: ResourceResolver,
+        code_sha256: str | None = None,
+    ) -> LambdaVersion:
+        code_dict = function.Code
+        if not code_dict:
+            raise ValueError("Lambda function code must be a valid non-empty dictionary")
+
+        if not intrinsics_resolver:
+            raise ValueError("intrinsics_resolver is required for versions creation")
+
+        code_dict = intrinsics_resolver.resolve_parameter_refs(code_dict)
+
+        prefix = f"{self.logical_id}Version"
+        logical_id = self._build_version_logical_id(
+            function,
+            intrinsics_resolver,
+            resource_resolver,
+            code_dict,
+            prefix,
+            code_sha256,
+        )
+
+        attributes = self.get_passthrough_resource_attributes()
+        self._apply_version_deletion_policy(attributes)
 
         lambda_version = LambdaVersion(logical_id=logical_id, attributes=attributes)
         lambda_version.FunctionName = function.get_runtime_attr("name")
@@ -1366,6 +1378,24 @@ class SamFunction(SamResourceMacro):
                 f"property {property_name} are FindInMap and parameter Refs.",
             )
         raise InvalidResourceException(self.logical_id, f"Invalid value for property {property_name}.")
+
+    def _construct_function_url_resources(
+        self,
+        lambda_function: LambdaFunction,
+        lambda_alias: LambdaAlias | None,
+    ) -> list[Any]:
+        url_resources: list[Any] = []
+        if self.FunctionUrlConfig:
+            lambda_url = self._construct_function_url(lambda_function, lambda_alias, self.FunctionUrlConfig)
+            url_resources.append(lambda_url)
+            url_permission = self._construct_url_permission(lambda_function, lambda_alias, self.FunctionUrlConfig)
+            invoke_dual_auth_permission = self._construct_invoke_permission(
+                lambda_function, lambda_alias, self.FunctionUrlConfig
+            )
+            if url_permission and invoke_dual_auth_permission:
+                url_resources.append(url_permission)
+                url_resources.append(invoke_dual_auth_permission)
+        return url_resources
 
     def _construct_function_url(
         self, lambda_function: LambdaFunction, lambda_alias: LambdaAlias | None, function_url_config: dict[str, Any]
