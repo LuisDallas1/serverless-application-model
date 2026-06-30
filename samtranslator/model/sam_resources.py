@@ -123,6 +123,7 @@ from samtranslator.model.role_utils import construct_role_for_resource
 from samtranslator.model.sns import SNSTopic, SNSTopicPolicy
 from samtranslator.model.sqs import SQSQueue, SQSQueuePolicy
 from samtranslator.model.stepfunctions import StateMachineGenerator
+from samtranslator.model.stepfunctions.generators import StateMachineConfig
 from samtranslator.model.types import (
     IS_BOOL,
     IS_DICT,
@@ -2353,7 +2354,7 @@ class SamStateMachine(SamResourceMacro):
         intrinsics_resolver = kwargs["intrinsics_resolver"]
         event_resources = kwargs["event_resources"]
 
-        state_machine_generator = StateMachineGenerator(  # type: ignore[no-untyped-call]
+        state_machine_generator = StateMachineGenerator(StateMachineConfig(
             logical_id=self.logical_id,
             depends_on=self.depends_on,
             managed_policy_map=managed_policy_map,
@@ -2379,7 +2380,7 @@ class SamStateMachine(SamResourceMacro):
             auto_publish_alias=self.AutoPublishAlias,
             deployment_preference=self.DeploymentPreference,
             use_alias_as_event_target=self.UseAliasAsEventTarget,
-        )
+        ))
 
         generated_resources = state_machine_generator.to_cloudformation()
 
