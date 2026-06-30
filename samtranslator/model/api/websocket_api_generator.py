@@ -2,7 +2,7 @@ from typing import Any
 
 from samtranslator.metrics.method_decorator import cw_timer
 from samtranslator.model import Resource
-from samtranslator.model.api.apiv2_generator import ApiV2Generator
+from samtranslator.model.api.apiv2_generator import ApiV2Generator, CfnAttributes, RouteConfig, StageConfig
 from samtranslator.model.apigatewayv2 import (
     ApiGatewayV2Integration,
     ApiGatewayV2Route,
@@ -29,6 +29,8 @@ class AuthType:
 
 
 class WebSocketApiGenerator(ApiV2Generator):
+    default_tag_name = WebSocketApiTagName
+
     def __init__(  # noqa: PLR0913
         self,
         logical_id: str,
@@ -77,30 +79,33 @@ class WebSocketApiGenerator(ApiV2Generator):
         """
         super().__init__(
             logical_id,
-            stage_variables,
-            depends_on,
-            access_log_settings,
-            default_route_settings,
-            description,
-            disable_execute_api_endpoint,
-            domain,
-            passthrough_resource_attributes,
-            resource_attributes,
-            route_settings,
-            tags,
+            stage_config=StageConfig(
+                stage_variables=stage_variables,
+                access_log_settings=access_log_settings,
+                tags=tags,
+            ),
+            route_config=RouteConfig(
+                route_settings=route_settings,
+                default_route_settings=default_route_settings,
+            ),
+            cfn_attributes=CfnAttributes(
+                depends_on=depends_on,
+                passthrough_resource_attributes=passthrough_resource_attributes,
+                resource_attributes=resource_attributes,
+            ),
+            description=description,
+            disable_execute_api_endpoint=disable_execute_api_endpoint,
+            domain=domain,
         )
         # use logical id as name if none provided
         self.name = name if name is not None else self.logical_id
         self.stage_name = stage_name if stage_name is not None else DefaultStageName
-        self.stage_variables = stage_variables
         self.routes = routes
         if not self.routes:
             raise InvalidResourceException(self.logical_id, "WebSocket API must have at least one route.")
         self.route_selection_expression = route_selection_expression
         self.api_key_selection_expression = api_key_selection_expression
         self.auth_config = auth_config
-        self.default_tag_name = WebSocketApiTagName
-        self.description = description
         self.disable_schema_validation = disable_schema_validation
         self.ip_address_type = ip_address_type
         if (
@@ -118,7 +123,7 @@ class WebSocketApiGenerator(ApiV2Generator):
 
     def _construct_websocket_api(self) -> ApiGatewayV2WebSocketApi:
         websocket_api = ApiGatewayV2WebSocketApi(
-            self.logical_id, depends_on=self.depends_on, attributes=self.resource_attributes
+            self.logical_id, depends_on=self.cfn_attributes.depends_on, attributes=self.cfn_attributes.resource_attributes
         )
         # Direct passes
         websocket_api.ApiKeySelectionExpression = self.api_key_selection_expression
@@ -132,10 +137,10 @@ class WebSocketApiGenerator(ApiV2Generator):
             )
         websocket_api.Name = self.name
         websocket_api.RouteSelectionExpression = self.route_selection_expression
-        if not self.tags:
-            self.tags = {}
-        self.tags[self.default_tag_name] = "SAM"
-        websocket_api.Tags = self.tags
+        if not self.stage_config.tags:
+            self.stage_config.tags = {}
+        self.stage_config.tags[self.default_tag_name] = "SAM"
+        websocket_api.Tags = self.stage_config.tags
 
         # Static fields
         websocket_api.ProtocolType = "WEBSOCKET"
@@ -144,7 +149,7 @@ class WebSocketApiGenerator(ApiV2Generator):
     def _construct_authorizer(self) -> ApiGatewayV2WSAuthorizer:
         # generate logical id for resource
         auth_name = self.logical_id + "ConnectAuthorizer"
-        auth = ApiGatewayV2WSAuthorizer(auth_name, attributes=self.passthrough_resource_attributes)
+        auth = ApiGatewayV2WSAuthorizer(auth_name, attributes=self.cfn_attributes.passthrough_resource_attributes)
         auth.ApiId = {"Ref": self.logical_id}
         if self.auth_config:  # unpacking
             if "InvokeRole" in self.auth_config:
@@ -234,7 +239,7 @@ class WebSocketApiGenerator(ApiV2Generator):
     def _construct_route(
         self, route_key: str, route_id: str, integration_id: str, route_spec: dict[str, Any]
     ) -> ApiGatewayV2Route:
-        apigw_route = ApiGatewayV2Route(route_id, attributes=self.passthrough_resource_attributes)
+        apigw_route = ApiGatewayV2Route(route_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
         apigw_route.RouteKey = route_key
         apigw_route.ApiId = ref(self.logical_id)
         apigw_route.ApiKeyRequired = route_spec.get("ApiKeyRequired")
@@ -276,7 +281,7 @@ class WebSocketApiGenerator(ApiV2Generator):
             raise InvalidResourceException(self.logical_id, "Route must have associated function.")
         # set up integration
         apigw_integration = ApiGatewayV2Integration(
-            apigw_integration_id, attributes=self.passthrough_resource_attributes
+            apigw_integration_id, attributes=self.cfn_attributes.passthrough_resource_attributes
         )
         apigw_integration.ApiId = ref(self.logical_id)
         apigw_integration.IntegrationType = "AWS_PROXY"
@@ -291,7 +296,7 @@ class WebSocketApiGenerator(ApiV2Generator):
         if "FunctionArn" not in route_spec:
             raise InvalidResourceException(self.logical_id, "Route must have associated function.")
         # set up permissions
-        perms = LambdaPermission(perms_id, attributes=self.passthrough_resource_attributes)
+        perms = LambdaPermission(perms_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
         perms.Action = "lambda:InvokeFunction"
         perms.FunctionName = route_spec["FunctionArn"]
         perms.Principal = "apigateway.amazonaws.com"
@@ -350,15 +355,15 @@ class WebSocketApiGenerator(ApiV2Generator):
             else self.logical_id + "DefaultStage"
         )
         # since this is no longer the API Gateway default stage exactly (that would be $default) I change it to be just DefaultStage
-        stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.passthrough_resource_attributes)
+        stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
         stage.ApiId = ref(self.logical_id)
         stage.StageName = self.stage_name
-        stage.StageVariables = self.stage_variables
-        stage.AccessLogSettings = self.access_log_settings
-        stage.DefaultRouteSettings = self.default_route_settings
+        stage.StageVariables = self.stage_config.stage_variables
+        stage.AccessLogSettings = self.stage_config.access_log_settings
+        stage.DefaultRouteSettings = self.route_config.default_route_settings
         stage.Tags = {self.default_tag_name: "SAM"}
         stage.AutoDeploy = True
-        stage.RouteSettings = self.route_settings
+        stage.RouteSettings = self.route_config.route_settings
 
         return stage
 
@@ -396,7 +401,7 @@ class WebSocketApiGenerator(ApiV2Generator):
 
         if stage:
             # Stage must depend on routes when RouteSettings references specific route keys
-            if self.route_settings and route_logical_ids:
+            if self.route_config.route_settings and route_logical_ids:
                 stage.depends_on = route_logical_ids
             generated_resources_list.append(stage)
 

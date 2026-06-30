@@ -2,7 +2,7 @@ from collections import namedtuple
 from typing import Any, Union
 
 from samtranslator.metrics.method_decorator import cw_timer
-from samtranslator.model.api.apiv2_generator import ApiV2Generator
+from samtranslator.model.api.apiv2_generator import ApiV2Generator, CfnAttributes, RouteConfig, StageConfig
 from samtranslator.model.apigatewayv2 import (
     ApiGatewayV2ApiMapping,
     ApiGatewayV2Authorizer,
@@ -34,6 +34,8 @@ HttpApiTagName = "httpapi:createdBy"
 
 
 class HttpApiGenerator(ApiV2Generator):
+    default_tag_name = HttpApiTagName
+
     def __init__(  # noqa: PLR0913
         self,
         logical_id: str,
@@ -73,17 +75,23 @@ class HttpApiGenerator(ApiV2Generator):
         """
         super().__init__(
             logical_id,
-            stage_variables,
-            depends_on,
-            access_log_settings,
-            default_route_settings,
-            description,
-            disable_execute_api_endpoint,
-            domain,
-            passthrough_resource_attributes,
-            resource_attributes,
-            route_settings,
-            tags,
+            stage_config=StageConfig(
+                stage_variables=stage_variables,
+                access_log_settings=access_log_settings,
+                tags=tags,
+            ),
+            route_config=RouteConfig(
+                route_settings=route_settings,
+                default_route_settings=default_route_settings,
+            ),
+            cfn_attributes=CfnAttributes(
+                depends_on=depends_on,
+                passthrough_resource_attributes=passthrough_resource_attributes,
+                resource_attributes=resource_attributes,
+            ),
+            description=description,
+            disable_execute_api_endpoint=disable_execute_api_endpoint,
+            domain=domain,
         )
         self.definition_body = definition_body
         self.definition_uri = definition_uri
@@ -94,7 +102,6 @@ class HttpApiGenerator(ApiV2Generator):
             self.stage_name = DefaultStageName
         self.auth = auth
         self.cors_configuration = cors_configuration
-        self.default_tag_name = HttpApiTagName
 
     def _construct_http_api(self) -> ApiGatewayV2HttpApi:
         """Constructs and returns the ApiGatewayV2 HttpApi.
@@ -102,7 +109,7 @@ class HttpApiGenerator(ApiV2Generator):
         :returns: the HttpApi to which this SAM Api corresponds
         :rtype: model.apigatewayv2.ApiGatewayHttpApi
         """
-        http_api = ApiGatewayV2HttpApi(self.logical_id, depends_on=self.depends_on, attributes=self.resource_attributes)
+        http_api = ApiGatewayV2HttpApi(self.logical_id, depends_on=self.cfn_attributes.depends_on, attributes=self.cfn_attributes.resource_attributes)
 
         if self.definition_uri and self.definition_body:
             raise InvalidResourceException(
@@ -276,7 +283,7 @@ class HttpApiGenerator(ApiV2Generator):
         """
         Adds tags to the Http Api, including a default SAM tag.
         """
-        if self.tags and not self.definition_body:
+        if self.stage_config.tags and not self.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Tags works only with inline OpenApi specified in the 'DefinitionBody' property."
             )
@@ -284,7 +291,7 @@ class HttpApiGenerator(ApiV2Generator):
         if not self.definition_body:
             return
 
-        if self.tags and not OpenApiEditor.is_valid(self.definition_body):
+        if self.stage_config.tags and not OpenApiEditor.is_valid(self.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add `Tags` because 'DefinitionBody' does not contain a valid OpenApi definition.",
@@ -292,14 +299,14 @@ class HttpApiGenerator(ApiV2Generator):
         if not OpenApiEditor.is_valid(self.definition_body):
             return
 
-        if not self.tags:
-            self.tags = {}
-        self.tags[self.default_tag_name] = "SAM"
+        if not self.stage_config.tags:
+            self.stage_config.tags = {}
+        self.stage_config.tags[self.default_tag_name] = "SAM"
 
         open_api_editor = OpenApiEditor(self.definition_body)
 
         # authorizers is guaranteed to return a value or raise an exception
-        open_api_editor.add_tags(self.tags)
+        open_api_editor.add_tags(self.stage_config.tags)
         self.definition_body = open_api_editor.openapi
 
     def _construct_authorizer_lambda_permission(self, http_api: ApiGatewayV2HttpApi) -> list[LambdaPermission]:
@@ -447,10 +454,10 @@ class HttpApiGenerator(ApiV2Generator):
         # If there are no special configurations, don't create a stage and use the default
         if (
             not self.stage_name
-            and not self.stage_variables
-            and not self.access_log_settings
-            and not self.default_route_settings
-            and not self.route_settings
+            and not self.stage_config.stage_variables
+            and not self.stage_config.access_log_settings
+            and not self.route_config.default_route_settings
+            and not self.route_config.route_settings
         ):
             return None
 
@@ -464,15 +471,15 @@ class HttpApiGenerator(ApiV2Generator):
         else:
             generator = LogicalIdGenerator(self.logical_id + "Stage", stage_name_prefix)
             stage_logical_id = generator.gen()
-        stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.passthrough_resource_attributes)
+        stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
         stage.ApiId = ref(self.logical_id)
         stage.StageName = self.stage_name
-        stage.StageVariables = self.stage_variables
-        stage.AccessLogSettings = self.access_log_settings
-        stage.DefaultRouteSettings = self.default_route_settings
-        stage.Tags = self.tags
+        stage.StageVariables = self.stage_config.stage_variables
+        stage.AccessLogSettings = self.stage_config.access_log_settings
+        stage.DefaultRouteSettings = self.route_config.default_route_settings
+        stage.Tags = self.stage_config.tags
         stage.AutoDeploy = True
-        stage.RouteSettings = self.route_settings
+        stage.RouteSettings = self.route_config.route_settings
 
         return stage
 

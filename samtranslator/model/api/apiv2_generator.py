@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from typing import Any, cast
 
 from samtranslator.model.apigatewayv2 import ApiGatewayV2Api, ApiGatewayV2ApiMapping, ApiGatewayV2DomainName
@@ -12,47 +13,56 @@ from samtranslator.utils.types import Intrinsicable
 from samtranslator.validator.value_validator import sam_expect
 
 
+@dataclass
+class StageConfig:
+    stage_variables: dict[str, Intrinsicable[str]] | None = None
+    access_log_settings: dict[str, Intrinsicable[str]] | None = None
+    tags: dict[str, Intrinsicable[str]] | None = None
+
+
+@dataclass
+class RouteConfig:
+    route_settings: dict[str, Any] | None = None
+    default_route_settings: dict[str, Any] | None = None
+
+
+@dataclass
+class CfnAttributes:
+    depends_on: list[str] | None = None
+    passthrough_resource_attributes: dict[str, Intrinsicable[str]] | None = None
+    resource_attributes: dict[str, Intrinsicable[str]] | None = None
+
+
 class ApiV2Generator:
-    def __init__(  # noqa: PLR0913
+    default_tag_name = ""
+
+    def __init__(
         self,
         logical_id: str,
-        stage_variables: dict[str, Intrinsicable[str]] | None,
-        depends_on: list[str] | None,
-        access_log_settings: dict[str, Intrinsicable[str]] | None = None,
-        default_route_settings: dict[str, Any] | None = None,
+        stage_config: StageConfig | None = None,
+        route_config: RouteConfig | None = None,
+        cfn_attributes: CfnAttributes | None = None,
         description: Intrinsicable[str] | None = None,
         disable_execute_api_endpoint: Intrinsicable[bool] | None = None,
         domain: dict[str, Any] | None = None,
-        # ip address type?
-        passthrough_resource_attributes: dict[str, Intrinsicable[str]] | None = None,
-        resource_attributes: dict[str, Intrinsicable[str]] | None = None,
-        route_settings: dict[str, Any] | None = None,
-        tags: dict[str, Intrinsicable[str]] | None = None,
     ) -> None:
         """Constructs an API Generator class that generates API Gateway resources
 
         :param logical_id: Logical id of the SAM API Resource
-        :param stage_variables: API Gateway Variables
-        :param depends_on: Any resources that need to be depended on
+        :param stage_config: Stage-related configuration (variables, access logs, tags)
+        :param route_config: Route-related configuration (route settings, default route settings)
+        :param cfn_attributes: CloudFormation resource attributes (depends_on, passthrough, resource_attributes)
         :param description: Description of the API Gateway resource
-        :param access_log_settings: Whether to send access logs and where for Stage
-        :param passthrough_resource_attributes: Attributes such as 'Condition' that are added to derived resources
-        :param resource_attributes: Resource attributes to add to API resources
-        :param tags: Stage and API Tags
+        :param disable_execute_api_endpoint: DisableExecuteApiEndpoint property
+        :param domain: Domain configuration
         """
         self.logical_id = logical_id
-        self.stage_variables = stage_variables
-        self.depends_on = depends_on
-        self.access_log_settings = access_log_settings
-        self.default_route_settings = default_route_settings
+        self.stage_config = stage_config or StageConfig()
+        self.route_config = route_config or RouteConfig()
+        self.cfn_attributes = cfn_attributes or CfnAttributes()
         self.description = description
         self.disable_execute_api_endpoint = disable_execute_api_endpoint
         self.domain = domain
-        self.passthrough_resource_attributes = passthrough_resource_attributes
-        self.resource_attributes = resource_attributes
-        self.route_settings = route_settings
-        self.tags = tags
-        self.default_tag_name = ""
 
     def _construct_api_domain(  # noqa: PLR0912, PLR0915
         self, api: ApiGatewayV2Api, route53_record_set_groups: dict[str, Route53RecordSetGroup]
@@ -82,7 +92,7 @@ class ApiV2Generator:
         api_domain_name = "{}{}".format("ApiGatewayDomainNameV2", LogicalIdGenerator("", domain_name).gen())
         custom_domain_config["ApiDomainName"] = api_domain_name
 
-        domain = ApiGatewayV2DomainName(api_domain_name, attributes=self.passthrough_resource_attributes)
+        domain = ApiGatewayV2DomainName(api_domain_name, attributes=self.cfn_attributes.passthrough_resource_attributes)
         domain.DomainName = domain_name
         if self.default_tag_name != "":
             domain.Tags = {self.default_tag_name: "SAM"}
@@ -180,7 +190,7 @@ class ApiV2Generator:
         if matching_record_set_group:
             record_set_group = matching_record_set_group
         else:
-            record_set_group = Route53RecordSetGroup(logical_id, attributes=self.passthrough_resource_attributes)
+            record_set_group = Route53RecordSetGroup(logical_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
             if "HostedZoneId" in route53_config:
                 record_set_group.HostedZoneId = route53_config.get("HostedZoneId")
             elif "HostedZoneName" in route53_config:
@@ -202,7 +212,7 @@ class ApiV2Generator:
 
         if basepaths is None:
             basepath_mapping = ApiGatewayV2ApiMapping(
-                self.logical_id + "ApiMapping", attributes=self.passthrough_resource_attributes
+                self.logical_id + "ApiMapping", attributes=self.cfn_attributes.passthrough_resource_attributes
             )
             basepath_mapping.DomainName = ref(api_domain_name)
             basepath_mapping.ApiId = ref(api.logical_id)
@@ -220,7 +230,7 @@ class ApiV2Generator:
                     raise InvalidResourceException(self.logical_id, "Invalid Basepath name provided.")
 
                 logical_id = "{}{}{}".format(self.logical_id, re.sub(r"[\-_/]+", "", path), "ApiMapping")
-                basepath_mapping = ApiGatewayV2ApiMapping(logical_id, attributes=self.passthrough_resource_attributes)
+                basepath_mapping = ApiGatewayV2ApiMapping(logical_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
                 basepath_mapping.DomainName = ref(api_domain_name)
                 basepath_mapping.ApiId = ref(api.logical_id)
                 basepath_mapping.Stage = ref(api.logical_id + ".Stage")
@@ -294,7 +304,7 @@ class ApiV2Generator:
             {"__ApiId__": api_id},
         )
 
-        lambda_permission = LambdaPermission(permission_name, attributes=self.passthrough_resource_attributes)
+        lambda_permission = LambdaPermission(permission_name, attributes=self.cfn_attributes.passthrough_resource_attributes)
         lambda_permission.Action = "lambda:InvokeFunction"
         lambda_permission.FunctionName = authorizer_lambda_function_arn
         lambda_permission.Principal = "apigateway.amazonaws.com"
