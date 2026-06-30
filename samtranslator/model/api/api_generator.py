@@ -284,7 +284,7 @@ class ApiGenerator:
         self.security_policy = security_policy
         self.endpoint_access_mode = endpoint_access_mode
 
-    def _construct_rest_api(self) -> ApiGatewayRestApi:  # noqa: PLR0912
+    def _construct_rest_api(self) -> ApiGatewayRestApi:
         """Constructs and returns the ApiGateway RestApi.
 
         :returns: the RestApi to which this SAM Api corresponds
@@ -324,6 +324,11 @@ class ApiGenerator:
             self.definition_body = self._openapi_postprocess(self.definition_body)
             rest_api.Body = self.definition_body
 
+        self._set_optional_properties(rest_api)
+
+        return rest_api
+
+    def _set_optional_properties(self, rest_api: ApiGatewayRestApi) -> None:
         if self.name:
             rest_api.Name = self.name
 
@@ -344,8 +349,6 @@ class ApiGenerator:
 
         if self.endpoint_access_mode:
             rest_api.EndpointAccessMode = self.endpoint_access_mode
-
-        return rest_api
 
     def _validate_properties(self) -> None:
         if self.definition_uri and self.definition_body:
