@@ -71,8 +71,12 @@ from samtranslator.model.apigatewayv2 import (
 )
 from samtranslator.model.architecture import ARM64, X86_64
 from samtranslator.model.capacity_provider.generators import (
-    CapacityProviderGenerator,
     _CapacityProviderProperties,
+    _ComputeConfig,
+    _SecurityConfig,
+    _TagConfig,
+    _CfnResourceConfig,
+    CapacityProviderGenerator,
 )
 from samtranslator.model.cfn_attributes.deletion_policy import DeletionPolicy
 from samtranslator.model.cloudformation import NestedStack
@@ -1628,19 +1632,27 @@ class SamCapacityProvider(SamResourceMacro):
         capacity_provider_config = _CapacityProviderProperties(
             capacity_provider_name=passthrough_value(model.CapacityProviderName),
             vpc_config=model.VpcConfig.dict() if model.VpcConfig else None,
-            operator_role=passthrough_value(model.OperatorRole),
-            tags=model.Tags,
-            instance_requirements=(
-                model.InstanceRequirements.dict(exclude_none=True) if model.InstanceRequirements else None
+            security=_SecurityConfig(
+                operator_role=passthrough_value(model.OperatorRole),
+                kms_key_arn=passthrough_value(model.KmsKeyArn),
             ),
-            scaling_config=model.ScalingConfig.dict(exclude_none=True) if model.ScalingConfig else None,
-            kms_key_arn=passthrough_value(model.KmsKeyArn),
-            managed_resource_tags=(
-                model.ManagedResourceTags.dict(exclude_none=True) if model.ManagedResourceTags else None
+            tags_config=_TagConfig(
+                tags=model.Tags,
+                managed_resource_tags=(
+                    model.ManagedResourceTags.dict(exclude_none=True) if model.ManagedResourceTags else None
+                ),
             ),
-            depends_on=self.depends_on,
-            resource_attributes=self.resource_attributes,
-            passthrough_resource_attributes=self.get_passthrough_resource_attributes(),
+            compute=_ComputeConfig(
+                instance_requirements=(
+                    model.InstanceRequirements.dict(exclude_none=True) if model.InstanceRequirements else None
+                ),
+                scaling_config=model.ScalingConfig.dict(exclude_none=True) if model.ScalingConfig else None,
+            ),
+            cfn=_CfnResourceConfig(
+                depends_on=self.depends_on,
+                resource_attributes=self.resource_attributes,
+                passthrough_resource_attributes=self.get_passthrough_resource_attributes(),
+            ),
         )
         capacity_provider_generator = CapacityProviderGenerator(
             logical_id=self.logical_id,
