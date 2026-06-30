@@ -1031,6 +1031,18 @@ class SwaggerEditor(BaseEditor):
             uri_list.extend([resource])
         return uri_list
 
+    def _append_to_resource_policy(self, statements):  # type: ignore[no-untyped-def]
+        if self.resource_policy.get("Statement") is None:
+            self.resource_policy["Statement"] = statements
+        else:
+            existing = self.resource_policy["Statement"]
+            if not isinstance(existing, list):
+                existing = [existing]
+            for s in statements:
+                if s not in existing:
+                    existing.append(s)
+            self.resource_policy["Statement"] = existing
+
     def _add_ip_resource_policy_for_method(self, ip_list, conditional, resource_list):  # type: ignore[no-untyped-def]
         """
         This method generates a policy statement to grant/deny specific IP address ranges access to the API method and
@@ -1062,32 +1074,9 @@ class SwaggerEditor(BaseEditor):
         deny_statement["Principal"] = "*"
         deny_statement["Condition"] = {conditional: {"aws:SourceIp": ip_list}}
 
-        if self.resource_policy.get("Statement") is None:
-            self.resource_policy["Statement"] = [allow_statement, deny_statement]
-        else:
-            statement = self.resource_policy["Statement"]
-            if not isinstance(statement, list):
-                statement = [statement]
-            if allow_statement not in statement:
-                statement.extend([allow_statement])
-            if deny_statement not in statement:
-                statement.extend([deny_statement])
-            self.resource_policy["Statement"] = statement
+        self._append_to_resource_policy([allow_statement, deny_statement])
 
-    def _add_vpc_resource_policy_for_method(  # noqa: PLR0912
-        self, endpoint_dict: dict[str, Any], conditional: str, resource_list: PassThrough
-    ) -> None:
-        """
-        This method generates a policy statement to grant/deny specific VPC/VPCE access to the API method and
-        appends it to the swagger under `x-amazon-apigateway-policy`
-        :raises InvalidDocumentException: If the conditional passed in does not match the allowed values.
-        """
-
-        if conditional not in ["StringNotEquals", "StringEquals"]:
-            raise InvalidDocumentException(
-                [InvalidTemplateException("Conditional must be one of {}".format(["StringNotEquals", "StringEquals"]))]
-            )
-
+    def _process_endpoint_dict(self, endpoint_dict):  # type: ignore[no-untyped-def]
         condition = Py27Dict()
         string_endpoint_list = endpoint_dict.get("StringEndpointList")
         intrinsic_vpc_endpoint_list = endpoint_dict.get("IntrinsicVpcList")
@@ -1112,7 +1101,24 @@ class SwaggerEditor(BaseEditor):
         if intrinsic_vpce_endpoint_list is not None:
             condition.setdefault("aws:SourceVpce", []).extend(intrinsic_vpce_endpoint_list)  # type: ignore[no-untyped-call]
 
-        # Skip writing to transformed template if both vpc and vpce endpoint lists are empty
+        return condition
+
+    def _add_vpc_resource_policy_for_method(
+        self, endpoint_dict: dict[str, Any], conditional: str, resource_list: PassThrough
+    ) -> None:
+        """
+        This method generates a policy statement to grant/deny specific VPC/VPCE access to the API method and
+        appends it to the swagger under `x-amazon-apigateway-policy`
+        :raises InvalidDocumentException: If the conditional passed in does not match the allowed values.
+        """
+
+        if conditional not in ["StringNotEquals", "StringEquals"]:
+            raise InvalidDocumentException(
+                [InvalidTemplateException("Conditional must be one of {}".format(["StringNotEquals", "StringEquals"]))]
+            )
+
+        condition = self._process_endpoint_dict(endpoint_dict)
+
         if (not condition.get("aws:SourceVpc", [])) and (not condition.get("aws:SourceVpce", [])):
             return
 
@@ -1130,17 +1136,7 @@ class SwaggerEditor(BaseEditor):
         deny_statement["Principal"] = "*"
         deny_statement["Condition"] = {conditional: condition}
 
-        if self.resource_policy.get("Statement") is None:
-            self.resource_policy["Statement"] = [allow_statement, deny_statement]
-        else:
-            statement = self.resource_policy["Statement"]
-            if not isinstance(statement, list):
-                statement = [statement]
-            if allow_statement not in statement:
-                statement.extend([allow_statement])
-            if deny_statement not in statement:
-                statement.extend([deny_statement])
-            self.resource_policy["Statement"] = statement
+        self._append_to_resource_policy([allow_statement, deny_statement])
 
     def _add_custom_statement(self, custom_statements):  # type: ignore[no-untyped-def]
         if custom_statements is None:
@@ -1152,15 +1148,7 @@ class SwaggerEditor(BaseEditor):
         else:
             if not isinstance(custom_statements, list):
                 custom_statements = [custom_statements]
-
-            statement = self.resource_policy["Statement"]
-            if not isinstance(statement, list):
-                statement = [statement]
-
-            for s in custom_statements:
-                if s not in statement:
-                    statement.append(s)
-            self.resource_policy["Statement"] = statement
+            self._append_to_resource_policy(custom_statements)
 
     def add_request_parameters_to_method(self, path, method_name, request_parameters):  # type: ignore[no-untyped-def]
         """
