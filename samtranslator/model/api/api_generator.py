@@ -1090,90 +1090,95 @@ class ApiGenerator:
 
         self.definition_body = self._openapi_postprocess(swagger_editor.swagger)
 
-    def _construct_usage_plan(self, rest_api_stage: ApiGatewayStage | None = None) -> Any:  # noqa: PLR0912
-        """Constructs and returns the ApiGateway UsagePlan, ApiGateway UsagePlanKey, ApiGateway ApiKey for Auth.
+    def _construct_usage_plan(self, rest_api_stage: ApiGatewayStage | None = None) -> Any:
+        usage_plan_properties, create_usage_plan = self._validate_usage_plan_properties()
+        if create_usage_plan is None:
+            return []
+        if create_usage_plan == "NONE":
+            return []
+        if not rest_api_stage:
+            return []
 
-        :param model.apigateway.ApiGatewayStage stage: the stage of rest api
-        :returns: UsagePlan, UsagePlanKey, ApiKey for this rest Api
-        :rtype: model.apigateway.ApiGatewayUsagePlan, model.apigateway.ApiGatewayUsagePlanKey,
-                model.apigateway.ApiGatewayApiKey
-        """
+        if create_usage_plan == "PER_API":
+            usage_plan, api_key, usage_plan_key = self._construct_per_api_usage_plan(create_usage_plan, rest_api_stage)
+        else:
+            usage_plan, api_key, usage_plan_key = self._construct_shared_usage_plan(create_usage_plan, rest_api_stage)
+
+        self._set_usage_plan_properties(usage_plan, usage_plan_properties)
+        return usage_plan, api_key, usage_plan_key
+
+    def _validate_usage_plan_properties(self) -> tuple[Any, Any]:
         create_usage_plans_accepted_values = ["SHARED", "PER_API", "NONE"]
         if not self.auth:
-            return []
+            return None, None
         auth_properties = AuthProperties(**self.auth)
         if auth_properties.UsagePlan is None:
-            return []
+            return None, None
         usage_plan_properties = auth_properties.UsagePlan
-        # throws error if UsagePlan is not a dict
         if not isinstance(usage_plan_properties, dict):
             raise InvalidResourceException(self.logical_id, "'UsagePlan' must be a dictionary")
-        # throws error if the property invalid/ unsupported for UsagePlan
         if not all(key in UsagePlanProperties._fields for key in usage_plan_properties):
             raise InvalidResourceException(self.logical_id, "Invalid property for 'UsagePlan'")
-
         create_usage_plan = usage_plan_properties.get("CreateUsagePlan")
-        usage_plan: ApiGatewayUsagePlan | None = None
-        api_key = None
-        usage_plan_key = None
-
         if create_usage_plan is None:
             raise InvalidResourceException(self.logical_id, "'CreateUsagePlan' is a required field for UsagePlan.")
         if create_usage_plan not in create_usage_plans_accepted_values:
             raise InvalidResourceException(
                 self.logical_id, f"'CreateUsagePlan' accepts one of {create_usage_plans_accepted_values}."
             )
+        return usage_plan_properties, create_usage_plan
 
-        if create_usage_plan == "NONE":
-            return []
-        if not rest_api_stage:
-            return []
+    def _construct_per_api_usage_plan(
+        self, create_usage_plan: Any, rest_api_stage: ApiGatewayStage
+    ) -> tuple[ApiGatewayUsagePlan, ApiGatewayApiKey, ApiGatewayUsagePlanKey]:
+        usage_plan_logical_id = self.logical_id + "UsagePlan"
+        usage_plan = ApiGatewayUsagePlan(
+            logical_id=usage_plan_logical_id,
+            depends_on=[self.logical_id],
+            attributes=self.passthrough_resource_attributes,
+        )
+        api_stages = []
+        api_stage = {}
+        api_stage["ApiId"] = ref(self.logical_id)
+        api_stage["Stage"] = ref(rest_api_stage.logical_id)
+        api_stages.append(api_stage)
+        usage_plan.ApiStages = api_stages
 
-        # create usage plan for this api only
-        if usage_plan_properties.get("CreateUsagePlan") == "PER_API":
-            usage_plan_logical_id = self.logical_id + "UsagePlan"
-            usage_plan = ApiGatewayUsagePlan(
-                logical_id=usage_plan_logical_id,
-                depends_on=[self.logical_id],
-                attributes=self.passthrough_resource_attributes,
-            )
-            api_stages = []
-            api_stage = {}
-            api_stage["ApiId"] = ref(self.logical_id)
-            api_stage["Stage"] = ref(rest_api_stage.logical_id)
-            api_stages.append(api_stage)
-            usage_plan.ApiStages = api_stages
+        api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
+        usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
+        return usage_plan, api_key, usage_plan_key
 
-            api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
-            usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
+    def _construct_shared_usage_plan(
+        self, create_usage_plan: Any, rest_api_stage: ApiGatewayStage
+    ) -> tuple[ApiGatewayUsagePlan, ApiGatewayApiKey, ApiGatewayUsagePlanKey]:
+        LOG.info("Creating SHARED usage plan for all the Apis")
+        usage_plan_logical_id = "ServerlessUsagePlan"
+        if self.logical_id not in self.shared_api_usage_plan.depends_on_shared:
+            self.shared_api_usage_plan.depends_on_shared.append(self.logical_id)
+        usage_plan = ApiGatewayUsagePlan(
+            logical_id=usage_plan_logical_id,
+            depends_on=self.shared_api_usage_plan.depends_on_shared,
+            attributes=self.shared_api_usage_plan.get_combined_resource_attributes(
+                self.passthrough_resource_attributes, self.template_conditions
+            ),
+        )
+        api_stage = {}
+        api_stage["ApiId"] = ref(self.logical_id)
+        api_stage["Stage"] = ref(rest_api_stage.logical_id)
+        if api_stage not in self.shared_api_usage_plan.api_stages_shared:
+            self.shared_api_usage_plan.api_stages_shared.append(api_stage)
+        usage_plan.ApiStages = self.shared_api_usage_plan.api_stages_shared
 
-        # create a usage plan for all the Apis
-        elif create_usage_plan == "SHARED":
-            LOG.info("Creating SHARED usage plan for all the Apis")
-            usage_plan_logical_id = "ServerlessUsagePlan"
-            if self.logical_id not in self.shared_api_usage_plan.depends_on_shared:
-                self.shared_api_usage_plan.depends_on_shared.append(self.logical_id)
-            usage_plan = ApiGatewayUsagePlan(
-                logical_id=usage_plan_logical_id,
-                depends_on=self.shared_api_usage_plan.depends_on_shared,
-                attributes=self.shared_api_usage_plan.get_combined_resource_attributes(
-                    self.passthrough_resource_attributes, self.template_conditions
-                ),
-            )
-            api_stage = {}
-            api_stage["ApiId"] = ref(self.logical_id)
-            api_stage["Stage"] = ref(rest_api_stage.logical_id)
-            if api_stage not in self.shared_api_usage_plan.api_stages_shared:
-                self.shared_api_usage_plan.api_stages_shared.append(api_stage)
-            usage_plan.ApiStages = self.shared_api_usage_plan.api_stages_shared
+        api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
+        usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
+        return usage_plan, api_key, usage_plan_key
 
-            api_key = self._construct_api_key(usage_plan_logical_id, create_usage_plan, rest_api_stage)
-            usage_plan_key = self._construct_usage_plan_key(usage_plan_logical_id, create_usage_plan, api_key)
-
+    def _set_usage_plan_properties(
+        self, usage_plan: ApiGatewayUsagePlan | None, usage_plan_properties: Any
+    ) -> None:
         for name in ["UsagePlanName", "Description", "Quota", "Tags", "Throttle"]:
             if usage_plan and usage_plan_properties.get(name):
                 setattr(usage_plan, name, usage_plan_properties.get(name))
-        return usage_plan, api_key, usage_plan_key
 
     def _construct_api_key(
         self, usage_plan_logical_id: str, create_usage_plan: Any, rest_api_stage: ApiGatewayStage
