@@ -848,7 +848,7 @@ class Api(PushEventSource):
 
         return self._construct_permission(resources_to_link["function"], source_arn=source_arn, suffix=suffix)  # type: ignore[no-untyped-call]
 
-    def _add_swagger_integration(  # type: ignore[no-untyped-def] # noqa: PLR0915
+    def _add_swagger_integration(  # type: ignore[no-untyped-def]
         self, api, api_id, function, intrinsics_resolver
     ):
         """Adds the path and method for this Api event source to the Swagger body for the provided RestApi.
@@ -906,7 +906,7 @@ class Api(PushEventSource):
         if self.TimeoutInMillis:
             editor.add_timeout_to_method(api=api, path=self.Path, method_name=self.Method, timeout=self.TimeoutInMillis)
 
-        self._add_request_model_to_swagger(api, editor)
+        self._add_request_model_to_swagger(editor, api)
 
         self._add_request_parameters_to_swagger(editor)
 
@@ -915,71 +915,68 @@ class Api(PushEventSource):
         else:
             api["DefinitionBody"] = editor.swagger
 
-    def _add_request_model_to_swagger(self, api, editor):  # type: ignore[no-untyped-def]
+    def _add_request_model_to_swagger(self, editor, api):
         if not self.RequestModel:
             return
         sam_expect(self.RequestModel, self.relative_id, "RequestModel", is_sam_event=True).to_be_a_map()
         method_model = self.RequestModel.get("Model")
 
-        if not method_model:
-            return
-
-        api_models = api.get("Models")
-        if not api_models:
-            raise InvalidEventException(
-                self.relative_id,
-                f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                "because the related API does not define any Models.",
-            )
-        if not is_intrinsic(api_models) and not isinstance(api_models, dict):
-            raise InvalidEventException(
-                self.relative_id,
-                f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                "because the related API Models defined is of invalid type.",
-            )
-        if not isinstance(method_model, str):
-            raise InvalidEventException(
-                self.relative_id,
-                f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                "because the related API does not contain valid Models.",
-            )
-
-        if not api_models.get(method_model):
-            raise InvalidEventException(
-                self.relative_id,
-                f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                "because it wasn't defined in the API's Models.",
-            )
-
-        editor.add_request_model_to_method(  # type: ignore[no-untyped-call]
-            path=self.Path, method_name=self.Method, request_model=self.RequestModel
-        )
-
-        validate_body = self.RequestModel.get("ValidateBody")
-        validate_parameters = self.RequestModel.get("ValidateParameters")
-
-        if validate_body is not None or validate_parameters is not None:
-            validate_body = False if validate_body is None else validate_body
-            validate_parameters = False if validate_parameters is None else validate_parameters
-
-            if not isinstance(validate_body, bool) or not isinstance(validate_parameters, bool):
+        if method_model:
+            api_models = api.get("Models")
+            if not api_models:
                 raise InvalidEventException(
                     self.relative_id,
-                    f"Unable to set Validator to RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
-                    "ValidateBody and ValidateParameters must be a boolean type, strings or intrinsics are not supported.",
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because the related API does not define any Models.",
+                )
+            if not is_intrinsic(api_models) and not isinstance(api_models, dict):
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because the related API Models defined is of invalid type.",
+                )
+            if not isinstance(method_model, str):
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because the related API does not contain valid Models.",
                 )
 
-            editor.add_request_validator_to_method(  # type: ignore[no-untyped-call]
-                path=self.Path,
-                method_name=self.Method,
-                validate_body=validate_body,
-                validate_parameters=validate_parameters,
+            if not api_models.get(method_model):
+                raise InvalidEventException(
+                    self.relative_id,
+                    f"Unable to set RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                    "because it wasn't defined in the API's Models.",
+                )
+
+            editor.add_request_model_to_method(  # type: ignore[no-untyped-call]
+                path=self.Path, method_name=self.Method, request_model=self.RequestModel
             )
 
-    def _add_request_parameters_to_swagger(self, editor):  # type: ignore[no-untyped-def]
+            validate_body = self.RequestModel.get("ValidateBody")
+            validate_parameters = self.RequestModel.get("ValidateParameters")
+
+            if validate_body is not None or validate_parameters is not None:
+                validate_body = False if validate_body is None else validate_body
+                validate_parameters = False if validate_parameters is None else validate_parameters
+
+                if not isinstance(validate_body, bool) or not isinstance(validate_parameters, bool):
+                    raise InvalidEventException(
+                        self.relative_id,
+                        f"Unable to set Validator to RequestModel [{method_model}] on API method [{self.Method}] for path [{self.Path}] "
+                        "ValidateBody and ValidateParameters must be a boolean type, strings or intrinsics are not supported.",
+                    )
+
+                editor.add_request_validator_to_method(  # type: ignore[no-untyped-call]
+                    path=self.Path,
+                    method_name=self.Method,
+                    validate_body=validate_body,
+                    validate_parameters=validate_parameters,
+                )
+
+    def _add_request_parameters_to_swagger(self, editor):
         if not self.RequestParameters:
             return
-
         default_value = {"Required": False, "Caching": False}
 
         parameters = []

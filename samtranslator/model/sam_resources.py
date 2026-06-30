@@ -299,7 +299,7 @@ class SamFunction(SamResourceMacro):
             raise InvalidResourceException(self.logical_id, e.message) from e
 
     @cw_timer
-    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def]
+    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def] # noqa: PLR0912
         """Returns the Lambda function, role, and event resources to which this SAM Function corresponds.
 
         :param dict kwargs: already-converted resources that may need to be modified when converting this \
@@ -327,16 +327,9 @@ class SamFunction(SamResourceMacro):
         lambda_function = self._construct_lambda_function(intrinsics_resolver)
         resources.append(lambda_function)
 
-        if self.ProvisionedConcurrencyConfig and not self.AutoPublishAlias:
-            raise InvalidResourceException(
-                self.logical_id,
-                "To set ProvisionedConcurrencyConfig AutoPublishALias must be defined on the function",
-            )
-
-        auto_publish_resources, lambda_alias, alias_name = self._construct_auto_publish_alias(
-            lambda_function, intrinsics_resolver, resource_resolver,
+        lambda_alias, alias_name = self._handle_auto_publish_alias(
+            lambda_function, intrinsics_resolver, resource_resolver, resources
         )
-        resources.extend(auto_publish_resources)
 
         resources.extend(self._construct_function_url_resources(lambda_function, lambda_alias))
 
@@ -356,17 +349,9 @@ class SamFunction(SamResourceMacro):
             )
             resources.extend(event_invoke_resources)
 
-        managed_policy_map = kwargs.get("managed_policy_map", {})
-        get_managed_policy_map = kwargs.get("get_managed_policy_map")
-
-        execution_role = self._construct_role(
-            managed_policy_map,
-            event_invoke_policies,
-            intrinsics_resolver,
-            get_managed_policy_map,
+        execution_role = self._handle_execution_role(
+            lambda_function, intrinsics_resolver, event_invoke_policies, conditions, resources, kwargs
         )
-
-        resources.extend(self._handle_lambda_role(lambda_function, intrinsics_resolver, execution_role, conditions))
 
         try:
             resources += self._generate_event_resources(
@@ -383,6 +368,71 @@ class SamFunction(SamResourceMacro):
         self.propagate_tags(resources, self.Tags, self.PropagateTags)
 
         return resources
+
+    def _handle_auto_publish_alias(
+        self,
+        lambda_function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        resource_resolver: ResourceResolver,
+        resources: list[Any],
+    ) -> tuple[LambdaAlias | None, str]:
+        if self.ProvisionedConcurrencyConfig and not self.AutoPublishAlias:
+            raise InvalidResourceException(
+                self.logical_id,
+                "To set ProvisionedConcurrencyConfig AutoPublishALias must be defined on the function",
+            )
+
+        lambda_alias: LambdaAlias | None = None
+        alias_name = ""
+        if self.AutoPublishAlias:
+            alias_name = self._get_resolved_alias_name("AutoPublishAlias", self.AutoPublishAlias, intrinsics_resolver)
+            code_sha256 = None
+            if self.AutoPublishCodeSha256:
+                code_sha256 = intrinsics_resolver.resolve_parameter_refs(self.AutoPublishCodeSha256)
+                if not isinstance(code_sha256, str):
+                    raise InvalidResourceException(
+                        self.logical_id,
+                        "AutoPublishCodeSha256 must be a string",
+                    )
+                description = intrinsics_resolver.resolve_parameter_refs(self.Description)
+                if not description or isinstance(description, str):
+                    lambda_function.Description = f"{description} {code_sha256}" if description else code_sha256
+                else:
+                    lambda_function.Description = {"Fn::Join": [" ", [description, code_sha256]]}
+            lambda_version = self._construct_version(
+                lambda_function,
+                intrinsics_resolver=intrinsics_resolver,
+                resource_resolver=resource_resolver,
+                code_sha256=code_sha256,
+            )
+            lambda_alias = self._construct_alias(alias_name, lambda_function, lambda_version)
+            resources.append(lambda_version)
+            resources.append(lambda_alias)
+
+        return lambda_alias, alias_name
+
+    def _handle_execution_role(
+        self,
+        lambda_function: LambdaFunction,
+        intrinsics_resolver: IntrinsicsResolver,
+        event_invoke_policies: list[dict[str, Any]],
+        conditions: dict[str, Any],
+        resources: list[Any],
+        kwargs: dict[str, Any],
+    ) -> IAMRole:
+        managed_policy_map = kwargs.get("managed_policy_map", {})
+        get_managed_policy_map = kwargs.get("get_managed_policy_map")
+
+        execution_role = self._construct_role(
+            managed_policy_map,
+            event_invoke_policies,
+            intrinsics_resolver,
+            get_managed_policy_map,
+        )
+
+        resources.extend(self._handle_lambda_role(lambda_function, intrinsics_resolver, execution_role, conditions))
+
+        return execution_role
 
     def _make_lambda_role(
         self,
@@ -1104,43 +1154,6 @@ class SamFunction(SamResourceMacro):
             return DeletionPolicy.DELETE
         # Classic Lambda function - retain versions (existing behavior)
         return DeletionPolicy.RETAIN
-
-    def _construct_auto_publish_alias(
-        self,
-        lambda_function: LambdaFunction,
-        intrinsics_resolver: IntrinsicsResolver,
-        resource_resolver: ResourceResolver,
-    ) -> tuple[list[Any], LambdaAlias | None, str]:
-        alias_name = ""
-        lambda_alias = None
-        auto_publish_resources: list[Any] = []
-
-        if self.AutoPublishAlias:
-            alias_name = self._get_resolved_alias_name("AutoPublishAlias", self.AutoPublishAlias, intrinsics_resolver)
-            code_sha256 = None
-            if self.AutoPublishCodeSha256:
-                code_sha256 = intrinsics_resolver.resolve_parameter_refs(self.AutoPublishCodeSha256)
-                if not isinstance(code_sha256, str):
-                    raise InvalidResourceException(
-                        self.logical_id,
-                        "AutoPublishCodeSha256 must be a string",
-                    )
-                description = intrinsics_resolver.resolve_parameter_refs(self.Description)
-                if not description or isinstance(description, str):
-                    lambda_function.Description = f"{description} {code_sha256}" if description else code_sha256
-                else:
-                    lambda_function.Description = {"Fn::Join": [" ", [description, code_sha256]]}
-            lambda_version = self._construct_version(
-                lambda_function,
-                intrinsics_resolver=intrinsics_resolver,
-                resource_resolver=resource_resolver,
-                code_sha256=code_sha256,
-            )
-            lambda_alias = self._construct_alias(alias_name, lambda_function, lambda_version)
-            auto_publish_resources.append(lambda_version)
-            auto_publish_resources.append(lambda_alias)
-
-        return auto_publish_resources, lambda_alias, alias_name
 
     def _build_version_logical_id(
         self,

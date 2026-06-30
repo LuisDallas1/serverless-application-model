@@ -112,59 +112,6 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         """
         return
 
-    def _add_consumer_group_id(self, lambda_eventsourcemapping: LambdaEventSourceMapping) -> None:
-        if not self.ConsumerGroupId:
-            return
-        consumer_group_id_structure = {"ConsumerGroupId": self.ConsumerGroupId}
-        if self.resource_type == "MSK":
-            lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig = consumer_group_id_structure
-        elif self.resource_type == "SelfManagedKafka":
-            lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig = consumer_group_id_structure
-        else:
-            raise InvalidEventException(
-                self.logical_id,
-                f"Property ConsumerGroupId not defined for resource of type {self.resource_type}.",
-            )
-
-    def _add_schema_registry_config(self, lambda_eventsourcemapping: LambdaEventSourceMapping) -> None:
-        if not self.SchemaRegistryConfig:
-            return
-        if self.resource_type == "MSK":
-            if not lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig:  # type: ignore[attr-defined]
-                lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig = {}
-            lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig["SchemaRegistryConfig"] = (  # type: ignore[attr-defined]
-                self.SchemaRegistryConfig
-            )
-        if self.resource_type == "SelfManagedKafka":
-            if not lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig:  # type: ignore[attr-defined]
-                lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig = {}
-            lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig["SchemaRegistryConfig"] = (  # type: ignore[attr-defined]
-                self.SchemaRegistryConfig
-            )
-
-    def _add_destination_config(
-        self, lambda_eventsourcemapping: LambdaEventSourceMapping
-    ) -> dict[str, Any] | None:
-        destination_config_policy: dict[str, Any] | None = None
-        if not self.DestinationConfig:
-            return None
-        on_failure: dict[str, Any] = sam_expect(
-            self.DestinationConfig.get("OnFailure"),
-            self.logical_id,
-            "DestinationConfig.OnFailure",
-            is_sam_event=True,
-        ).to_be_a_map()
-        destination_type = on_failure.get("Type")
-        if destination_type:
-            del on_failure["Type"]
-            if destination_type not in ["SQS", "SNS", "S3", "Kafka"]:
-                raise InvalidEventException(
-                    self.logical_id, "The only valid values for 'Type' are 'SQS', 'SNS', 'S3', and 'Kafka'"
-                )
-            destination_config_policy = self._build_destination_policy(destination_type, on_failure)
-        lambda_eventsourcemapping.DestinationConfig = self.DestinationConfig
-        return destination_config_policy
-
     def _build_destination_policy(self, destination_type: str, on_failure: dict[str, Any]) -> dict[str, Any] | None:
         if destination_type == "SQS":
             queue_arn = on_failure.get("Destination")
@@ -207,6 +154,21 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         except KeyError:
             function_name_or_arn = function.get_runtime_attr("arn")
 
+        self._set_basic_properties(lambda_eventsourcemapping, function_name_or_arn)
+
+        self._configure_kafka_event_source_config(lambda_eventsourcemapping)
+        destination_config_policy = self._resolve_destination_config(lambda_eventsourcemapping)
+
+        self.add_extra_eventsourcemapping_fields(lambda_eventsourcemapping)
+
+        if "role" in kwargs:
+            self._link_policy(kwargs["role"], intrinsic_resolver, destination_config_policy)  # type: ignore[no-untyped-call]
+
+        return resources
+
+    def _set_basic_properties(
+        self, lambda_eventsourcemapping: LambdaEventSourceMapping, function_name_or_arn: PassThrough
+    ) -> None:
         lambda_eventsourcemapping.FunctionName = function_name_or_arn
         lambda_eventsourcemapping.EventSourceArn = self.get_event_source_arn()
         lambda_eventsourcemapping.StartingPosition = self.StartingPosition
@@ -231,20 +193,75 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         lambda_eventsourcemapping.LoggingConfig = self.LoggingConfig
         self._validate_filter_criteria()
 
+    def _configure_kafka_event_source_config(self, lambda_eventsourcemapping: LambdaEventSourceMapping) -> None:
         if self.KafkaBootstrapServers:
             lambda_eventsourcemapping.SelfManagedEventSource = {
                 "Endpoints": {"KafkaBootstrapServers": self.KafkaBootstrapServers}
             }
-        self._add_consumer_group_id(lambda_eventsourcemapping)
-        self._add_schema_registry_config(lambda_eventsourcemapping)
-        destination_config_policy = self._add_destination_config(lambda_eventsourcemapping)
+        if self.ConsumerGroupId:
+            consumer_group_id_structure = {"ConsumerGroupId": self.ConsumerGroupId}
+            if self.resource_type == "MSK":
+                lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig = consumer_group_id_structure
+            elif self.resource_type == "SelfManagedKafka":
+                lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig = consumer_group_id_structure
+            else:
+                raise InvalidEventException(
+                    self.logical_id,
+                    f"Property ConsumerGroupId not defined for resource of type {self.resource_type}.",
+                )
+        if self.SchemaRegistryConfig:
+            if self.resource_type == "MSK":
+                if not lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig:  # type: ignore[attr-defined]
+                    lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig = {}
+                lambda_eventsourcemapping.AmazonManagedKafkaEventSourceConfig["SchemaRegistryConfig"] = (  # type: ignore[attr-defined]
+                    self.SchemaRegistryConfig
+                )
+            if self.resource_type == "SelfManagedKafka":
+                if not lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig:  # type: ignore[attr-defined]
+                    lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig = {}
+                lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig["SchemaRegistryConfig"] = (  # type: ignore[attr-defined]
+                    self.SchemaRegistryConfig
+                )
 
-        self.add_extra_eventsourcemapping_fields(lambda_eventsourcemapping)
+    def _resolve_destination_config(self, lambda_eventsourcemapping: LambdaEventSourceMapping) -> dict[str, Any] | None:
+        destination_config_policy: dict[str, Any] | None = None
+        if self.DestinationConfig:
+            on_failure: dict[str, Any] = sam_expect(
+                self.DestinationConfig.get("OnFailure"),
+                self.logical_id,
+                "DestinationConfig.OnFailure",
+                is_sam_event=True,
+            ).to_be_a_map()
 
-        if "role" in kwargs:
-            self._link_policy(kwargs["role"], intrinsic_resolver, destination_config_policy)  # type: ignore[no-untyped-call]
+            destination_type = on_failure.get("Type")
 
-        return resources
+            if destination_type:
+                del on_failure["Type"]
+                if destination_type not in ["SQS", "SNS", "S3", "Kafka"]:
+                    raise InvalidEventException(
+                        self.logical_id, "The only valid values for 'Type' are 'SQS', 'SNS', 'S3', and 'Kafka'"
+                    )
+                if destination_type == "SQS":
+                    queue_arn = on_failure.get("Destination")
+                    destination_config_policy = IAMRolePolicies().sqs_send_message_role_policy(
+                        queue_arn, self.logical_id
+                    )
+                elif destination_type == "SNS":
+                    sns_topic_arn = on_failure.get("Destination")
+                    destination_config_policy = IAMRolePolicies().sns_publish_role_policy(
+                        sns_topic_arn, self.logical_id
+                    )
+                elif destination_type == "S3":
+                    s3_arn = on_failure.get("Destination")
+                    destination_config_policy = IAMRolePolicies().s3_send_event_payload_role_policy(
+                        s3_arn, self.logical_id
+                    )
+                elif destination_type == "Kafka":
+                    pass
+
+            lambda_eventsourcemapping.DestinationConfig = self.DestinationConfig
+
+        return destination_config_policy
 
     def _link_policy(self, role, intrinsic_resolver=None, destination_config_policy=None):  # type: ignore[no-untyped-def]
         """If this source triggers a Lambda function whose execution role is auto-generated by SAM, add the
