@@ -1,4 +1,5 @@
 from collections import namedtuple
+from dataclasses import dataclass
 from typing import Any, Union
 
 from samtranslator.metrics.method_decorator import cw_timer
@@ -31,6 +32,17 @@ AuthProperties = namedtuple("AuthProperties", ["Authorizers", "DefaultAuthorizer
 AuthProperties.__new__.__defaults__ = (None, None, False)
 DefaultStageName = "$default"
 HttpApiTagName = "httpapi:createdBy"
+
+
+@dataclass
+class _HttpApiProperties:
+    definition_body: dict[str, Any] | None = None
+    definition_uri: Intrinsicable[str] | None = None
+    fail_on_warnings: Intrinsicable[bool] | None = None
+    name: Any | None = None
+    stage_name: Intrinsicable[str] | None = None
+    auth: dict[str, Intrinsicable[str]] | None = None
+    cors_configuration: Union[bool, dict[str, Any]] | None = None
 
 
 class HttpApiGenerator(ApiV2Generator):
@@ -93,15 +105,17 @@ class HttpApiGenerator(ApiV2Generator):
             disable_execute_api_endpoint=disable_execute_api_endpoint,
             domain=domain,
         )
-        self.definition_body = definition_body
-        self.definition_uri = definition_uri
-        self.fail_on_warnings = fail_on_warnings
-        self.name = name
-        self.stage_name = stage_name
-        if not self.stage_name:
-            self.stage_name = DefaultStageName
-        self.auth = auth
-        self.cors_configuration = cors_configuration
+        self.api_properties = _HttpApiProperties(
+            definition_body=definition_body,
+            definition_uri=definition_uri,
+            fail_on_warnings=fail_on_warnings,
+            name=name,
+            stage_name=stage_name,
+            auth=auth,
+            cors_configuration=cors_configuration,
+        )
+        if not self.api_properties.stage_name:
+            self.api_properties.stage_name = DefaultStageName
 
     def _construct_http_api(self) -> ApiGatewayV2HttpApi:
         """Constructs and returns the ApiGatewayV2 HttpApi.
@@ -111,19 +125,19 @@ class HttpApiGenerator(ApiV2Generator):
         """
         http_api = ApiGatewayV2HttpApi(self.logical_id, depends_on=self.cfn_attributes.depends_on, attributes=self.cfn_attributes.resource_attributes)
 
-        if self.definition_uri and self.definition_body:
+        if self.api_properties.definition_uri and self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Specify either 'DefinitionUri' or 'DefinitionBody' property and not both."
             )
-        if self.cors_configuration:
+        if self.api_properties.cors_configuration:
             # call this method to add cors in open api
             self._add_cors()
 
         self._add_auth()
         self._add_tags()
 
-        if self.fail_on_warnings:
-            http_api.FailOnWarnings = self.fail_on_warnings
+        if self.api_properties.fail_on_warnings:
+            http_api.FailOnWarnings = self.api_properties.fail_on_warnings
 
         if self.disable_execute_api_endpoint is not None:
             self._add_endpoint_configuration()
@@ -132,10 +146,10 @@ class HttpApiGenerator(ApiV2Generator):
         self._add_description()
         self._update_default_path()
 
-        if self.definition_uri:
-            http_api.BodyS3Location = self._construct_body_s3_dict(self.definition_uri)
-        elif self.definition_body:
-            http_api.Body = self.definition_body
+        if self.api_properties.definition_uri:
+            http_api.BodyS3Location = self._construct_body_s3_dict(self.api_properties.definition_uri)
+        elif self.api_properties.definition_body:
+            http_api.Body = self.api_properties.definition_body
         else:
             raise InvalidResourceException(
                 self.logical_id,
@@ -158,11 +172,11 @@ class HttpApiGenerator(ApiV2Generator):
         For this reason, we always put DisableExecuteApiEndpoint into openapi object.
 
         """
-        if self.disable_execute_api_endpoint is not None and not self.definition_body:
+        if self.disable_execute_api_endpoint is not None and not self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "DisableExecuteApiEndpoint works only within 'DefinitionBody' property."
             )
-        editor = OpenApiEditor(self.definition_body)
+        editor = OpenApiEditor(self.api_properties.definition_body)
 
         # if DisableExecuteApiEndpoint is set in both definition_body and as a property,
         # SAM merges and overrides the disableExecuteApiEndpoint in definition_body with headers of
@@ -170,7 +184,7 @@ class HttpApiGenerator(ApiV2Generator):
         editor.add_endpoint_config(self.disable_execute_api_endpoint)
 
         # Assign the OpenApi back to template
-        self.definition_body = editor.openapi
+        self.api_properties.definition_body = editor.openapi
 
     def _add_cors(self) -> None:
         """
@@ -179,33 +193,33 @@ class HttpApiGenerator(ApiV2Generator):
         APIGW extension for CORS is not present in the DefinitionBody
         """
 
-        if self.cors_configuration and not self.definition_body:
+        if self.api_properties.cors_configuration and not self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Cors works only with inline OpenApi specified in 'DefinitionBody' property."
             )
 
         # If cors configuration is set to true add * to the allow origins.
         # This also support referencing the value as a parameter
-        if isinstance(self.cors_configuration, bool):
+        if isinstance(self.api_properties.cors_configuration, bool):
             # if cors config is true add Origins as "'*'"
             properties = CorsProperties(AllowOrigins=[_CORS_WILDCARD])  # type: ignore[call-arg]
 
-        elif is_intrinsic(self.cors_configuration):
+        elif is_intrinsic(self.api_properties.cors_configuration):
             # Just set Origin property. Intrinsics will be handledOthers will be defaults
-            properties = CorsProperties(AllowOrigins=self.cors_configuration)  # type: ignore[call-arg]
+            properties = CorsProperties(AllowOrigins=self.api_properties.cors_configuration)  # type: ignore[call-arg]
 
-        elif isinstance(self.cors_configuration, dict):
+        elif isinstance(self.api_properties.cors_configuration, dict):
             # Make sure keys in the dict are recognized
-            for key in self.cors_configuration:
+            for key in self.api_properties.cors_configuration:
                 if key not in CorsProperties._fields:
                     raise InvalidResourceException(self.logical_id, f"Invalid key '{key}' for 'Cors' property.")
 
-            properties = CorsProperties(**self.cors_configuration)
+            properties = CorsProperties(**self.api_properties.cors_configuration)
 
         else:
             raise InvalidResourceException(self.logical_id, "Invalid value for 'Cors' property.")
 
-        if not OpenApiEditor.is_valid(self.definition_body):
+        if not OpenApiEditor.is_valid(self.api_properties.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add Cors configuration because "
@@ -221,7 +235,7 @@ class HttpApiGenerator(ApiV2Generator):
                 "'AllowOrigin' is \"'*'\" or not set.",
             )
 
-        editor = OpenApiEditor(self.definition_body)
+        editor = OpenApiEditor(self.api_properties.definition_body)
         # if CORS is set in both definition_body and as a CorsConfiguration property,
         # SAM merges and overrides the cors headers in definition_body with headers of CorsConfiguration
         editor.add_cors(  # type: ignore[no-untyped-call]
@@ -234,18 +248,18 @@ class HttpApiGenerator(ApiV2Generator):
         )
 
         # Assign the OpenApi back to template
-        self.definition_body = editor.openapi
+        self.api_properties.definition_body = editor.openapi
 
     def _update_default_path(self) -> None:
         # Only do the following if FailOnWarnings is enabled for backward compatibility.
-        if not self.fail_on_warnings or not self.definition_body:
+        if not self.api_properties.fail_on_warnings or not self.api_properties.definition_body:
             return
 
         # Using default stage name generate warning during deployment
         #   Warnings found during import: Parse issue: attribute paths.
         #   Resource $default should start with / (Service: AmazonApiGatewayV2; Status Code: 400;
         # Deployment fails when FailOnWarnings is true: https://github.com/aws/serverless-application-model/issues/2297
-        paths: dict[str, Any] = self.definition_body.get("paths", {})
+        paths: dict[str, Any] = self.api_properties.definition_body.get("paths", {})
         if DefaultStageName in paths:
             paths[f"/{DefaultStageName}"] = paths.pop(DefaultStageName)
 
@@ -253,67 +267,67 @@ class HttpApiGenerator(ApiV2Generator):
         """
         Add Auth configuration to the OAS file, if necessary
         """
-        if not self.auth:
+        if not self.api_properties.auth:
             return
 
-        if self.auth and not self.definition_body:
+        if self.api_properties.auth and not self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Auth works only with inline OpenApi specified in the 'DefinitionBody' property."
             )
 
         # Make sure keys in the dict are recognized
-        if not all(key in AuthProperties._fields for key in self.auth):
+        if not all(key in AuthProperties._fields for key in self.api_properties.auth):
             raise InvalidResourceException(self.logical_id, "Invalid value for 'Auth' property")
 
-        if not OpenApiEditor.is_valid(self.definition_body):
+        if not OpenApiEditor.is_valid(self.api_properties.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add Auth configuration because 'DefinitionBody' does not contain a valid OpenApi definition.",
             )
-        open_api_editor = OpenApiEditor(self.definition_body)
-        auth_properties = AuthProperties(**self.auth)
+        open_api_editor = OpenApiEditor(self.api_properties.definition_body)
+        auth_properties = AuthProperties(**self.api_properties.auth)
         authorizers = self._get_authorizers(auth_properties.Authorizers, auth_properties.EnableIamAuthorizer)
 
         # authorizers is guaranteed to return a value or raise an exception
         open_api_editor.add_authorizers_security_definitions(authorizers)
         self._set_default_authorizer(open_api_editor, authorizers, auth_properties.DefaultAuthorizer)
-        self.definition_body = open_api_editor.openapi
+        self.api_properties.definition_body = open_api_editor.openapi
 
     def _add_tags(self) -> None:
         """
         Adds tags to the Http Api, including a default SAM tag.
         """
-        if self.stage_config.tags and not self.definition_body:
+        if self.stage_config.tags and not self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id, "Tags works only with inline OpenApi specified in the 'DefinitionBody' property."
             )
 
-        if not self.definition_body:
+        if not self.api_properties.definition_body:
             return
 
-        if self.stage_config.tags and not OpenApiEditor.is_valid(self.definition_body):
+        if self.stage_config.tags and not OpenApiEditor.is_valid(self.api_properties.definition_body):
             raise InvalidResourceException(
                 self.logical_id,
                 "Unable to add `Tags` because 'DefinitionBody' does not contain a valid OpenApi definition.",
             )
-        if not OpenApiEditor.is_valid(self.definition_body):
+        if not OpenApiEditor.is_valid(self.api_properties.definition_body):
             return
 
         if not self.stage_config.tags:
             self.stage_config.tags = {}
         self.stage_config.tags[self.default_tag_name] = "SAM"
 
-        open_api_editor = OpenApiEditor(self.definition_body)
+        open_api_editor = OpenApiEditor(self.api_properties.definition_body)
 
         # authorizers is guaranteed to return a value or raise an exception
         open_api_editor.add_tags(self.stage_config.tags)
-        self.definition_body = open_api_editor.openapi
+        self.api_properties.definition_body = open_api_editor.openapi
 
     def _construct_authorizer_lambda_permission(self, http_api: ApiGatewayV2HttpApi) -> list[LambdaPermission]:
-        if not self.auth:
+        if not self.api_properties.auth:
             return []
 
-        auth_properties = AuthProperties(**self.auth)
+        auth_properties = AuthProperties(**self.api_properties.auth)
         authorizers = self._get_authorizers(auth_properties.Authorizers, auth_properties.EnableIamAuthorizer)
 
         if not authorizers:
@@ -453,7 +467,7 @@ class HttpApiGenerator(ApiV2Generator):
 
         # If there are no special configurations, don't create a stage and use the default
         if (
-            not self.stage_name
+            not self.api_properties.stage_name
             and not self.stage_config.stage_variables
             and not self.stage_config.access_log_settings
             and not self.route_config.default_route_settings
@@ -463,7 +477,7 @@ class HttpApiGenerator(ApiV2Generator):
 
         # If StageName is some intrinsic function, then don't prefix the Stage's logical ID
         # This will NOT create duplicates because we allow only ONE stage per API resource
-        stage_name_prefix = self.stage_name if isinstance(self.stage_name, str) else ""
+        stage_name_prefix = self.api_properties.stage_name if isinstance(self.api_properties.stage_name, str) else ""
         if stage_name_prefix.isalnum():
             stage_logical_id = self.logical_id + stage_name_prefix + "Stage"
         elif stage_name_prefix == DefaultStageName:
@@ -473,7 +487,7 @@ class HttpApiGenerator(ApiV2Generator):
             stage_logical_id = generator.gen()
         stage = ApiGatewayV2Stage(stage_logical_id, attributes=self.cfn_attributes.passthrough_resource_attributes)
         stage.ApiId = ref(self.logical_id)
-        stage.StageName = self.stage_name
+        stage.StageName = self.api_properties.stage_name
         stage.StageVariables = self.stage_config.stage_variables
         stage.AccessLogSettings = self.stage_config.access_log_settings
         stage.DefaultRouteSettings = self.route_config.default_route_settings
@@ -488,13 +502,13 @@ class HttpApiGenerator(ApiV2Generator):
         if not self.description:
             return
 
-        if not self.definition_body:
+        if not self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id,
                 "Description works only with inline OpenApi specified in the 'DefinitionBody' property.",
             )
         try:
-            description_in_definition_body = dict_deep_get(self.definition_body, "info.description")
+            description_in_definition_body = dict_deep_get(self.api_properties.definition_body, "info.description")
         except InvalidValueType as ex:
             raise InvalidResourceException(
                 self.logical_id,
@@ -507,22 +521,22 @@ class HttpApiGenerator(ApiV2Generator):
                 "'DefinitionBody' property.",
             )
 
-        open_api_editor = OpenApiEditor(self.definition_body)
+        open_api_editor = OpenApiEditor(self.api_properties.definition_body)
         open_api_editor.add_description(self.description)
-        self.definition_body = open_api_editor.openapi
+        self.api_properties.definition_body = open_api_editor.openapi
 
     def _add_title(self) -> None:
-        if not self.name:
+        if not self.api_properties.name:
             return
 
-        if not self.definition_body:
+        if not self.api_properties.definition_body:
             raise InvalidResourceException(
                 self.logical_id,
                 "Name works only with inline OpenApi specified in the 'DefinitionBody' property.",
             )
 
         try:
-            title_in_definition_body = dict_deep_get(self.definition_body, "info.title")
+            title_in_definition_body = dict_deep_get(self.api_properties.definition_body, "info.title")
         except InvalidValueType as ex:
             raise InvalidResourceException(
                 self.logical_id,
@@ -535,9 +549,9 @@ class HttpApiGenerator(ApiV2Generator):
                 "'DefinitionBody' property.",
             )
 
-        open_api_editor = OpenApiEditor(self.definition_body)
-        open_api_editor.add_title(self.name)
-        self.definition_body = open_api_editor.openapi
+        open_api_editor = OpenApiEditor(self.api_properties.definition_body)
+        open_api_editor.add_title(self.api_properties.name)
+        self.api_properties.definition_body = open_api_editor.openapi
 
     @cw_timer(prefix="Generator", name="HttpApi")
     def to_cloudformation(self, route53_record_set_groups: dict[str, Route53RecordSetGroup]) -> tuple[
