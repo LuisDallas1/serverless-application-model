@@ -1080,7 +1080,102 @@ class Api(PushEventSource):
         return rest_api_id["Ref"] if isinstance(rest_api_id, dict) and "Ref" in rest_api_id else rest_api_id
 
     @staticmethod
-    def add_auth_to_swagger(  # noqa: PLR0912, PLR0913
+    def _validate_authorizer(
+        event_auth: dict[str, Any],
+        api_auth: dict[str, Any],
+        api_id: str,
+        event_id: str,
+        method: str,
+        path: str,
+    ) -> None:
+        method_authorizer = event_auth.get("Authorizer")
+        if not method_authorizer:
+            return
+
+        api_authorizers = api_auth and api_auth.get("Authorizers")
+
+        if api_authorizers:
+            sam_expect(api_authorizers, api_id, "Auth.Authorizers").to_be_a_map()
+
+        if method_authorizer == "AWS_IAM":
+            return
+
+        if method_authorizer == "NONE":
+            _check_valid_authorizer_types(event_id, method, path, method_authorizer, api_authorizers, False)
+            if not api_auth or not api_auth.get("DefaultAuthorizer"):
+                raise InvalidEventException(
+                    event_id,
+                    f"Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
+                    "is only a valid value when a DefaultAuthorizer on the API is specified.",
+                )
+            return
+
+        if not api_authorizers:
+            raise InvalidEventException(
+                event_id,
+                f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
+                "because the related API does not define any Authorizers.",
+            )
+
+        _check_valid_authorizer_types(event_id, method, path, method_authorizer, api_authorizers, False)
+
+        if not api_authorizers.get(method_authorizer):
+            raise InvalidEventException(
+                event_id,
+                f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
+                "because it wasn't defined in the API's Authorizers.",
+            )
+
+    @staticmethod
+    def _validate_authorization_scopes(
+        event_auth: dict[str, Any],
+        method_authorizer: Any,
+        event_id: str,
+    ) -> None:
+        auth_scopes = event_auth.get("AuthorizationScopes")
+        if not auth_scopes:
+            return
+
+        sam_expect(auth_scopes, event_id, "Auth.AuthorizationScopes", is_sam_event=True).to_be_a_list()
+        if not method_authorizer:
+            raise InvalidEventException(event_id, "AuthorizationScopes works only when Authorizer is set")
+
+    @staticmethod
+    def _validate_api_key_required(
+        event_auth: dict[str, Any],
+        api_auth: dict[str, Any],
+        event_id: str,
+        method: str,
+        path: str,
+    ) -> None:
+        apikey_required_setting = event_auth.get("ApiKeyRequired")
+        apikey_required_setting_is_false = apikey_required_setting is not None and not apikey_required_setting
+        if apikey_required_setting_is_false and (not api_auth or not api_auth.get("ApiKeyRequired")):
+            raise InvalidEventException(
+                event_id,
+                f"Unable to set ApiKeyRequired [False] on API method [{method}] for path [{path}] "
+                "because the related API does not specify any ApiKeyRequired.",
+            )
+
+    @staticmethod
+    def _handle_resource_policy(
+        event_auth: dict[str, Any],
+        editor: SwaggerEditor,
+        path: str,
+        stage: str,
+        event_id: str,
+    ) -> None:
+        resource_policy = event_auth.get("ResourcePolicy")
+        if not resource_policy:
+            return
+
+        sam_expect(resource_policy, event_id, "Auth.ResourcePolicy").to_be_a_map()
+        editor.add_resource_policy(resource_policy=resource_policy, path=path, stage=stage)
+        if resource_policy.get("CustomStatements"):
+            editor.add_custom_statements(resource_policy.get("CustomStatements"))  # type: ignore[no-untyped-call]
+
+    @staticmethod
+    def add_auth_to_swagger(
         event_auth: dict[str, Any],
         api: dict[str, Any],
         api_id: str,
@@ -1095,67 +1190,14 @@ class Api(PushEventSource):
         api_auth = api.get("Auth")
         api_auth = intrinsics_resolver.resolve_parameter_refs(api_auth)
 
-        if method_authorizer:
-            api_authorizers = api_auth and api_auth.get("Authorizers")
+        Api._validate_authorizer(event_auth, api_auth, api_id, event_id, method, path)
+        Api._validate_authorization_scopes(event_auth, method_authorizer, event_id)
+        Api._validate_api_key_required(event_auth, api_auth, event_id, method, path)
 
-            if api_authorizers:
-                sam_expect(api_authorizers, api_id, "Auth.Authorizers").to_be_a_map()
-
-            if method_authorizer != "AWS_IAM":
-                if method_authorizer != "NONE":
-                    if not api_authorizers:
-                        raise InvalidEventException(
-                            event_id,
-                            f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
-                            "because the related API does not define any Authorizers.",
-                        )
-
-                    _check_valid_authorizer_types(  # type: ignore[no-untyped-call]
-                        event_id, method, path, method_authorizer, api_authorizers, False
-                    )
-
-                    if not api_authorizers.get(method_authorizer):
-                        raise InvalidEventException(
-                            event_id,
-                            f"Unable to set Authorizer [{method_authorizer}] on API method [{method}] for path [{path}] "
-                            "because it wasn't defined in the API's Authorizers.",
-                        )
-                else:
-                    _check_valid_authorizer_types(  # type: ignore[no-untyped-call]
-                        event_id, method, path, method_authorizer, api_authorizers, False
-                    )
-                    if not api_auth or not api_auth.get("DefaultAuthorizer"):
-                        raise InvalidEventException(
-                            event_id,
-                            f"Unable to set Authorizer on API method [{method}] for path [{path}] because 'NONE' "
-                            "is only a valid value when a DefaultAuthorizer on the API is specified.",
-                        )
-
-        auth_scopes = event_auth.get("AuthorizationScopes")
-
-        if auth_scopes:
-            sam_expect(auth_scopes, event_id, "Auth.AuthorizationScopes", is_sam_event=True).to_be_a_list()
-            if not method_authorizer:
-                raise InvalidEventException(event_id, "AuthorizationScopes works only when Authorizer is set")
-
-        apikey_required_setting = event_auth.get("ApiKeyRequired")
-        apikey_required_setting_is_false = apikey_required_setting is not None and not apikey_required_setting
-        if apikey_required_setting_is_false and (not api_auth or not api_auth.get("ApiKeyRequired")):
-            raise InvalidEventException(
-                event_id,
-                f"Unable to set ApiKeyRequired [False] on API method [{method}] for path [{path}] "
-                "because the related API does not specify any ApiKeyRequired.",
-            )
-
-        if method_authorizer or apikey_required_setting is not None:
+        if method_authorizer or event_auth.get("ApiKeyRequired") is not None:
             editor.add_auth_to_method(api=api, path=path, method_name=method, auth=event_auth)
 
-        resource_policy = event_auth.get("ResourcePolicy")
-        if resource_policy:
-            sam_expect(resource_policy, event_id, "Auth.ResourcePolicy").to_be_a_map()
-            editor.add_resource_policy(resource_policy=resource_policy, path=path, stage=stage)
-            if resource_policy.get("CustomStatements"):
-                editor.add_custom_statements(resource_policy.get("CustomStatements"))  # type: ignore[no-untyped-call]
+        Api._handle_resource_policy(event_auth, editor, path, stage, event_id)
 
 
 class AlexaSkill(PushEventSource):
