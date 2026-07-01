@@ -3,7 +3,14 @@ from unittest.mock import patch
 
 from parameterized import parameterized
 from samtranslator.model import Resource
-from samtranslator.model.capacity_provider.generators import CapacityProviderGenerator
+from samtranslator.model.capacity_provider.generators import (
+    _CapacityProviderProperties,
+    _ComputeConfig,
+    _SecurityConfig,
+    _TagConfig,
+    _CfnResourceConfig,
+    CapacityProviderGenerator,
+)
 from samtranslator.model.capacity_provider.resources import LambdaCapacityProvider
 from samtranslator.model.intrinsics import fnGetAtt
 
@@ -36,46 +43,53 @@ class TestCapacityProviderGenerator(TestCase):
 
     def test_init(self):
         """Test initialization of CapacityProviderGenerator"""
-        generator = CapacityProviderGenerator(
-            self.logical_id,
+        config = _CapacityProviderProperties(
             capacity_provider_name="test-provider",
             vpc_config=self.vpc_config,
-            operator_role=self.operator_role,
-            tags=self.tags,
-            instance_requirements=self.instance_requirements,
-            scaling_config=self.scaling_config,
-            kms_key_arn=self.kms_key_arn,
-            depends_on=self.depends_on,
-            resource_attributes=self.resource_attributes,
-            passthrough_resource_attributes=self.passthrough_resource_attributes,
+            security=_SecurityConfig(
+                operator_role=self.operator_role,
+                kms_key_arn=self.kms_key_arn,
+            ),
+            tags_config=_TagConfig(tags=self.tags),
+            compute=_ComputeConfig(
+                instance_requirements=self.instance_requirements,
+                scaling_config=self.scaling_config,
+            ),
+            cfn=_CfnResourceConfig(
+                depends_on=self.depends_on,
+                resource_attributes=self.resource_attributes,
+                passthrough_resource_attributes=self.passthrough_resource_attributes,
+            ),
         )
+        generator = CapacityProviderGenerator(self.logical_id, config=config)
 
         self.assertEqual(generator.logical_id, self.logical_id)
-        self.assertEqual(generator.capacity_provider_name, "test-provider")
-        self.assertEqual(generator.vpc_config, self.vpc_config)
-        self.assertEqual(generator.operator_role, self.operator_role)
-        self.assertEqual(generator.tags, self.tags)
-        self.assertEqual(generator.instance_requirements, self.instance_requirements)
-        self.assertEqual(generator.scaling_config, self.scaling_config)
-        self.assertEqual(generator.kms_key_arn, self.kms_key_arn)
-        self.assertEqual(generator.depends_on, self.depends_on)
-        self.assertEqual(generator.resource_attributes, self.resource_attributes)
-        self.assertEqual(generator.passthrough_resource_attributes, self.passthrough_resource_attributes)
+        self.assertEqual(generator.config.capacity_provider_name, "test-provider")
+        self.assertEqual(generator.config.vpc_config, self.vpc_config)
+        self.assertEqual(generator.config.security.operator_role, self.operator_role)
+        self.assertEqual(generator.config.tags_config.tags, self.tags)
+        self.assertEqual(generator.config.compute.instance_requirements, self.instance_requirements)
+        self.assertEqual(generator.config.compute.scaling_config, self.scaling_config)
+        self.assertEqual(generator.config.security.kms_key_arn, self.kms_key_arn)
+        self.assertEqual(generator.config.cfn.depends_on, self.depends_on)
+        self.assertEqual(generator.config.cfn.resource_attributes, self.resource_attributes)
+        self.assertEqual(generator.config.cfn.passthrough_resource_attributes, self.passthrough_resource_attributes)
 
     def test_to_cloudformation_with_provided_permissions(self):
         """Test to_cloudformation with provided operator role"""
         operator_role = "arn:aws:iam::123456789012:role/test"
 
-        generator = CapacityProviderGenerator(
-            self.logical_id,
+        config = _CapacityProviderProperties(
             capacity_provider_name="test-provider",
             vpc_config=self.vpc_config,
-            operator_role=operator_role,
-            tags=self.tags,
-            instance_requirements=self.instance_requirements,
-            scaling_config=self.scaling_config,
-            kms_key_arn=self.kms_key_arn,
+            security=_SecurityConfig(operator_role=operator_role, kms_key_arn=self.kms_key_arn),
+            tags_config=_TagConfig(tags=self.tags),
+            compute=_ComputeConfig(
+                instance_requirements=self.instance_requirements,
+                scaling_config=self.scaling_config,
+            ),
         )
+        generator = CapacityProviderGenerator(self.logical_id, config=config)
 
         resources = generator.to_cloudformation()
 
@@ -101,16 +115,17 @@ class TestCapacityProviderGenerator(TestCase):
 
     def test_to_cloudformation_with_auto_generated_permissions(self):
         """Test to_cloudformation with auto-generated operator role"""
-        generator = CapacityProviderGenerator(
-            self.logical_id,
+        config = _CapacityProviderProperties(
             capacity_provider_name="test-provider",
             vpc_config=self.vpc_config,
-            operator_role=None,
-            tags=self.tags,
-            instance_requirements=self.instance_requirements,
-            scaling_config=self.scaling_config,
-            kms_key_arn=self.kms_key_arn,
+            security=_SecurityConfig(operator_role=None, kms_key_arn=self.kms_key_arn),
+            tags_config=_TagConfig(tags=self.tags),
+            compute=_ComputeConfig(
+                instance_requirements=self.instance_requirements,
+                scaling_config=self.scaling_config,
+            ),
         )
+        generator = CapacityProviderGenerator(self.logical_id, config=config)
 
         resources = generator.to_cloudformation()
 
@@ -139,7 +154,10 @@ class TestCapacityProviderGenerator(TestCase):
 
     def test_transform_instance_requirements(self):
         """Test _transform_instance_requirements method"""
-        generator = CapacityProviderGenerator(self.logical_id, instance_requirements=self.instance_requirements)
+        generator = CapacityProviderGenerator(
+            self.logical_id,
+            config=_CapacityProviderProperties(compute=_ComputeConfig(instance_requirements=self.instance_requirements)),
+        )
 
         result = generator._transform_instance_requirements()
 
@@ -150,7 +168,9 @@ class TestCapacityProviderGenerator(TestCase):
 
     def test_transform_scaling_config_with_manual_policies(self):
         """Test _transform_scaling_config method with manual scaling policies"""
-        generator = CapacityProviderGenerator(self.logical_id, scaling_config=self.scaling_config)
+        generator = CapacityProviderGenerator(
+            self.logical_id, config=_CapacityProviderProperties(compute=_ComputeConfig(scaling_config=self.scaling_config))
+        )
 
         result = generator._transform_scaling_config()
 
@@ -168,7 +188,9 @@ class TestCapacityProviderGenerator(TestCase):
     def test_transform_scaling_config_without_manual_policies(self):
         """Test _transform_scaling_config method without manual scaling policies"""
         scaling_config = {"MaxVCpuCount": 10}
-        generator = CapacityProviderGenerator(self.logical_id, scaling_config=scaling_config)
+        generator = CapacityProviderGenerator(
+            self.logical_id, config=_CapacityProviderProperties(compute=_ComputeConfig(scaling_config=scaling_config))
+        )
 
         result = generator._transform_scaling_config()
 
@@ -176,7 +198,9 @@ class TestCapacityProviderGenerator(TestCase):
 
     def test_transform_tags(self):
         """Test _transform_tags method"""
-        generator = CapacityProviderGenerator(self.logical_id, tags=self.tags)
+        generator = CapacityProviderGenerator(
+            self.logical_id, config=_CapacityProviderProperties(tags_config=_TagConfig(tags=self.tags))
+        )
 
         result = generator._transform_tags(self.tags)
 
@@ -187,9 +211,10 @@ class TestCapacityProviderGenerator(TestCase):
 
     def test_create_operator_role(self):
         """Test _create_operator_role method"""
-        generator = CapacityProviderGenerator(
-            self.logical_id, passthrough_resource_attributes=self.passthrough_resource_attributes
+        config = _CapacityProviderProperties(
+            cfn=_CfnResourceConfig(passthrough_resource_attributes=self.passthrough_resource_attributes)
         )
+        generator = CapacityProviderGenerator(self.logical_id, config=config)
 
         with patch("samtranslator.model.capacity_provider.generators.ArnGenerator") as mock_arn_generator:
             mock_arn_generator.generate_aws_managed_policy_arn.return_value = (
@@ -241,18 +266,20 @@ class TestCapacityProviderGenerator(TestCase):
     )
     def test_transform_managed_resource_tags(self, _name, input_tags, expected):
         """Test _transform_managed_resource_tags translation cases"""
-        generator = CapacityProviderGenerator(self.logical_id, managed_resource_tags=input_tags)
+        generator = CapacityProviderGenerator(
+            self.logical_id, config=_CapacityProviderProperties(tags_config=_TagConfig(managed_resource_tags=input_tags))
+        )
         result = generator._transform_managed_resource_tags()
         self.assertEqual(result, expected)
 
     def test_to_cloudformation_with_managed_resource_tags(self):
         """Test that managed_resource_tags flows through to PropagateTags on the CFN resource"""
-        generator = CapacityProviderGenerator(
-            self.logical_id,
+        config = _CapacityProviderProperties(
             vpc_config=self.vpc_config,
-            operator_role=self.operator_role,
-            managed_resource_tags={"Propagate": True},
+            security=_SecurityConfig(operator_role=self.operator_role),
+            tags_config=_TagConfig(managed_resource_tags={"Propagate": True}),
         )
+        generator = CapacityProviderGenerator(self.logical_id, config=config)
         resources = generator.to_cloudformation()
         resource_dict = self.extract_resource(resources)
         capacity_provider = resource_dict[self.logical_id]

@@ -72,11 +72,15 @@ class Translator:
             ArnGenerator.BOTO_SESSION_REGION_NAME = self.boto_session.region_name
 
     def _get_function_names(
-        self, resource_dict: dict[str, Any], intrinsics_resolver: IntrinsicsResolver
+        self,
+        resource_dict: dict[str, Any],
+        intrinsics_resolver: IntrinsicsResolver,
+        function_names: dict[Any, Any],
     ) -> dict[str, str]:
         """
         :param resource_dict: AWS::Serverless::Function resource is provided as input
         :param intrinsics_resolver: to resolve intrinsics for function_name
+        :param function_names: dictionary of function names keyed by api logical id
         :return: a dictionary containing api_logical_id as the key and concatenated String of all function_names
                  associated with this api as the value
         """
@@ -98,11 +102,11 @@ class Translator:
                     )
                     if not resolved_function_name:
                         continue
-                    self.function_names.setdefault(api_name, [])
-                    self.function_names[api_name].append(str(resolved_function_name))
-        return {api: "".join(names) for api, names in self.function_names.items()}
+                    function_names.setdefault(api_name, [])
+                    function_names[api_name].append(str(resolved_function_name))
+        return {api: "".join(names) for api, names in function_names.items()}
 
-    def translate(  # noqa: PLR0912, PLR0915
+    def translate(
         self,
         sam_template: dict[str, Any],
         parameter_values: dict[str, Any],
@@ -127,8 +131,8 @@ class Translator:
         self.feature_toggle = feature_toggle or FeatureToggle(
             FeatureToggleDefaultConfigProvider(), stage=None, account_id=None, region=None
         )
-        self.function_names: dict[Any, Any] = {}
-        self.redeploy_restapi_parameters = {}
+        function_names: dict[Any, Any] = {}
+        redeploy_restapi_parameters = {}
         sam_parameter_values = SamParameterValues(parameter_values)
         sam_parameter_values.add_default_parameter_values(sam_template)
         sam_parameter_values.add_pseudo_parameter_values(self.boto_session)
@@ -163,54 +167,104 @@ class Translator:
         changed_logical_ids = {}
         route53_record_set_groups: dict[Any, Any] = {}
         for logical_id, resource_dict in self._get_resources_to_iterate(sam_template, macro_resolver):
-            try:
-                macro = macro_resolver.resolve_resource_type(resource_dict).from_dict(
-                    logical_id, resource_dict, sam_plugins=sam_plugins
-                )
+            supported_resource_refs = self._process_single_resource(
+                logical_id,
+                resource_dict,
+                sam_template,
+                template,
+                macro_resolver,
+                sam_plugins,
+                intrinsics_resolver,
+                mappings_resolver,
+                deployment_preference_collection,
+                resource_resolver,
+                supported_resource_refs,
+                shared_api_usage_plan,
+                route53_record_set_groups,
+                changed_logical_ids,
+                passthrough_metadata,
+                get_managed_policy_map,
+                redeploy_restapi_parameters,
+                function_names,
+            )
 
-                kwargs = macro.resources_to_link(sam_template["Resources"])
-                kwargs["managed_policy_map"] = self.managed_policy_map
-                kwargs["get_managed_policy_map"] = get_managed_policy_map
-                kwargs["intrinsics_resolver"] = intrinsics_resolver
-                kwargs["mappings_resolver"] = mappings_resolver
-                kwargs["deployment_preference_collection"] = deployment_preference_collection
-                kwargs["conditions"] = template.get("Conditions")
-                kwargs["resource_resolver"] = resource_resolver
-                kwargs["original_template"] = sam_template
-                # add the value of FunctionName property if the function is referenced with the api resource
-                self.redeploy_restapi_parameters["function_names"] = self._get_function_names(
-                    resource_dict, intrinsics_resolver
-                )
-                kwargs["redeploy_restapi_parameters"] = self.redeploy_restapi_parameters
-                kwargs["shared_api_usage_plan"] = shared_api_usage_plan
-                kwargs["feature_toggle"] = self.feature_toggle
-                kwargs["route53_record_set_groups"] = route53_record_set_groups
-                translated = macro.to_cloudformation(**kwargs)
-                supported_resource_refs = macro.get_resource_references(translated, supported_resource_refs)
+        self._handle_deployment_preferences(template, deployment_preference_collection)
 
-                # Some resources mutate their logical ids. Track those to change all references to them:
-                if logical_id != macro.logical_id:
-                    changed_logical_ids[logical_id] = macro.logical_id
+        self._run_after_transform_plugins(sam_plugins, template)
+        return self._finalize_template(template, intrinsics_resolver, changed_logical_ids, supported_resource_refs)
 
-                del template["Resources"][logical_id]
-                for resource in translated:
-                    if verify_unique_logical_id(resource, sam_template["Resources"]):
-                        # For each generated resource, pass through existing metadata that may exist on the original SAM resource.
-                        _r = resource.to_dict()
-                        if (
-                            resource_dict.get("Metadata")
-                            and passthrough_metadata
-                            and not template["Resources"].get(resource.logical_id)
-                        ):
-                            _r[resource.logical_id]["Metadata"] = resource_dict["Metadata"]
-                        template["Resources"].update(_r)
-                    else:
-                        self.document_errors.append(
-                            DuplicateLogicalIdException(logical_id, resource.logical_id, resource.resource_type)
-                        )
-            except (InvalidResourceException, InvalidEventException, InvalidTemplateException) as e:
-                self.document_errors.append(e)
+    def _process_single_resource(
+        self,
+        logical_id: str,
+        resource_dict: dict[str, Any],
+        sam_template: dict[str, Any],
+        template: dict[str, Any],
+        macro_resolver: ResourceTypeResolver,
+        sam_plugins: SamPlugins,
+        intrinsics_resolver: IntrinsicsResolver,
+        mappings_resolver: IntrinsicsResolver,
+        deployment_preference_collection: DeploymentPreferenceCollection,
+        resource_resolver: ResourceResolver,
+        supported_resource_refs: SupportedResourceReferences,
+        shared_api_usage_plan: SharedApiUsagePlan,
+        route53_record_set_groups: dict[Any, Any],
+        changed_logical_ids: dict[str, str],
+        passthrough_metadata: bool | None,
+        get_managed_policy_map: GetManagedPolicyMap | None,
+        redeploy_restapi_parameters: dict[str, Any],
+        function_names: dict[Any, Any],
+    ) -> SupportedResourceReferences:
+        try:
+            macro = macro_resolver.resolve_resource_type(resource_dict).from_dict(
+                logical_id, resource_dict, sam_plugins=sam_plugins
+            )
 
+            kwargs = macro.resources_to_link(sam_template["Resources"])
+            kwargs["managed_policy_map"] = self.managed_policy_map
+            kwargs["get_managed_policy_map"] = get_managed_policy_map
+            kwargs["intrinsics_resolver"] = intrinsics_resolver
+            kwargs["mappings_resolver"] = mappings_resolver
+            kwargs["deployment_preference_collection"] = deployment_preference_collection
+            kwargs["conditions"] = template.get("Conditions")
+            kwargs["resource_resolver"] = resource_resolver
+            kwargs["original_template"] = sam_template
+            redeploy_restapi_parameters["function_names"] = self._get_function_names(
+                resource_dict, intrinsics_resolver, function_names
+            )
+            kwargs["redeploy_restapi_parameters"] = redeploy_restapi_parameters
+            kwargs["shared_api_usage_plan"] = shared_api_usage_plan
+            kwargs["feature_toggle"] = self.feature_toggle
+            kwargs["route53_record_set_groups"] = route53_record_set_groups
+            translated = macro.to_cloudformation(**kwargs)
+            supported_resource_refs = macro.get_resource_references(translated, supported_resource_refs)
+
+            if logical_id != macro.logical_id:
+                changed_logical_ids[logical_id] = macro.logical_id
+
+            del template["Resources"][logical_id]
+            for resource in translated:
+                if verify_unique_logical_id(resource, sam_template["Resources"]):
+                    _r = resource.to_dict()
+                    if (
+                        resource_dict.get("Metadata")
+                        and passthrough_metadata
+                        and not template["Resources"].get(resource.logical_id)
+                    ):
+                        _r[resource.logical_id]["Metadata"] = resource_dict["Metadata"]
+                    template["Resources"].update(_r)
+                else:
+                    self.document_errors.append(
+                        DuplicateLogicalIdException(logical_id, resource.logical_id, resource.resource_type)
+                    )
+        except (InvalidResourceException, InvalidEventException, InvalidTemplateException) as e:
+            self.document_errors.append(e)
+        return supported_resource_refs
+
+    def _handle_deployment_preferences(
+        self,
+        template: dict[str, Any],
+        deployment_preference_collection: DeploymentPreferenceCollection,
+    ) -> None:
         if deployment_preference_collection.any_enabled():
             template["Resources"].update(deployment_preference_collection.get_codedeploy_application().to_dict())
             if deployment_preference_collection.needs_resource_condition():
@@ -229,18 +283,25 @@ class Translator:
                 except InvalidResourceException as e:
                     self.document_errors.append(e)
 
-        # Run the after-transform plugin target
+    def _run_after_transform_plugins(
+        self, sam_plugins: SamPlugins, template: dict[str, Any]
+    ) -> None:
         try:
             sam_plugins.act(LifeCycleEvents.after_transform_template, template)
         except (InvalidDocumentException, InvalidResourceException, InvalidTemplateException) as e:
             self.document_errors.append(e)
 
-        # Cleanup
-        if "Transform" in template:
-            del template["Transform"]
+    def _finalize_template(
+        self,
+        template: dict[str, Any],
+        intrinsics_resolver: IntrinsicsResolver,
+        changed_logical_ids: dict[str, str],
+        supported_resource_refs: SupportedResourceReferences,
+    ) -> dict[str, Any]:
+        template.pop("Transform", None)
 
         if len(self.document_errors) == 0:
-            resolveDependsOn = ResolveDependsOn(resolution_data=changed_logical_ids)  # Initializes ResolveDependsOn
+            resolveDependsOn = ResolveDependsOn(resolution_data=changed_logical_ids)
             template = traverse(template, [resolveDependsOn])
             template = intrinsics_resolver.resolve_sam_resource_id_refs(template, changed_logical_ids)
             return intrinsics_resolver.resolve_sam_resource_refs(template, supported_resource_refs)

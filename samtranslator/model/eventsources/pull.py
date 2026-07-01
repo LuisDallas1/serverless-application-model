@@ -112,8 +112,22 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         """
         return
 
+    def _build_destination_policy(self, destination_type: str, on_failure: dict[str, Any]) -> dict[str, Any] | None:
+        if destination_type == "SQS":
+            queue_arn = on_failure.get("Destination")
+            return IAMRolePolicies().sqs_send_message_role_policy(queue_arn, self.logical_id)
+        if destination_type == "SNS":
+            sns_topic_arn = on_failure.get("Destination")
+            return IAMRolePolicies().sns_publish_role_policy(sns_topic_arn, self.logical_id)
+        if destination_type == "S3":
+            s3_arn = on_failure.get("Destination")
+            return IAMRolePolicies().s3_send_event_payload_role_policy(s3_arn, self.logical_id)
+        if destination_type == "Kafka":
+            return None
+        return None
+
     @cw_timer(prefix=FUNCTION_EVETSOURCE_METRIC_PREFIX)
-    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def] # noqa: PLR0912, PLR0915
+    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def]
         """Returns the Lambda EventSourceMapping to which this pull event corresponds. Adds the appropriate managed
         policy to the function's execution role, if such a role is provided.
 
@@ -140,6 +154,21 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         except KeyError:
             function_name_or_arn = function.get_runtime_attr("arn")
 
+        self._set_basic_properties(lambda_eventsourcemapping, function_name_or_arn)
+
+        self._configure_kafka_event_source_config(lambda_eventsourcemapping)
+        destination_config_policy = self._resolve_destination_config(lambda_eventsourcemapping)
+
+        self.add_extra_eventsourcemapping_fields(lambda_eventsourcemapping)
+
+        if "role" in kwargs:
+            self._link_policy(kwargs["role"], intrinsic_resolver, destination_config_policy)  # type: ignore[no-untyped-call]
+
+        return resources
+
+    def _set_basic_properties(
+        self, lambda_eventsourcemapping: LambdaEventSourceMapping, function_name_or_arn: PassThrough
+    ) -> None:
         lambda_eventsourcemapping.FunctionName = function_name_or_arn
         lambda_eventsourcemapping.EventSourceArn = self.get_event_source_arn()
         lambda_eventsourcemapping.StartingPosition = self.StartingPosition
@@ -164,6 +193,7 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
         lambda_eventsourcemapping.LoggingConfig = self.LoggingConfig
         self._validate_filter_criteria()
 
+    def _configure_kafka_event_source_config(self, lambda_eventsourcemapping: LambdaEventSourceMapping) -> None:
         if self.KafkaBootstrapServers:
             lambda_eventsourcemapping.SelfManagedEventSource = {
                 "Endpoints": {"KafkaBootstrapServers": self.KafkaBootstrapServers}
@@ -192,6 +222,8 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
                 lambda_eventsourcemapping.SelfManagedKafkaEventSourceConfig["SchemaRegistryConfig"] = (  # type: ignore[attr-defined]
                     self.SchemaRegistryConfig
                 )
+
+    def _resolve_destination_config(self, lambda_eventsourcemapping: LambdaEventSourceMapping) -> dict[str, Any] | None:
         destination_config_policy: dict[str, Any] | None = None
         if self.DestinationConfig:
             on_failure: dict[str, Any] = sam_expect(
@@ -201,14 +233,10 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
                 is_sam_event=True,
             ).to_be_a_map()
 
-            # `Type` property is for sam to attach the right policies
             destination_type = on_failure.get("Type")
 
-            # SAM attaches the policies for SQS, SNS or S3 only if 'Type' is given
             if destination_type:
-                # delete this field as its used internally for SAM to determine the policy
                 del on_failure["Type"]
-                # the values 'SQS', 'SNS', 'S3', and 'Kafka' are allowed. No intrinsics are allowed
                 if destination_type not in ["SQS", "SNS", "S3", "Kafka"]:
                     raise InvalidEventException(
                         self.logical_id, "The only valid values for 'Type' are 'SQS', 'SNS', 'S3', and 'Kafka'"
@@ -229,17 +257,11 @@ class PullEventSource(ResourceMacro, metaclass=ABCMeta):
                         s3_arn, self.logical_id
                     )
                 elif destination_type == "Kafka":
-                    # No policy generation for Kafka destinations - pass through
                     pass
 
             lambda_eventsourcemapping.DestinationConfig = self.DestinationConfig
 
-        self.add_extra_eventsourcemapping_fields(lambda_eventsourcemapping)
-
-        if "role" in kwargs:
-            self._link_policy(kwargs["role"], intrinsic_resolver, destination_config_policy)  # type: ignore[no-untyped-call]
-
-        return resources
+        return destination_config_policy
 
     def _link_policy(self, role, intrinsic_resolver=None, destination_config_policy=None):  # type: ignore[no-untyped-def]
         """If this source triggers a Lambda function whose execution role is auto-generated by SAM, add the

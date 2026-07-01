@@ -22,10 +22,18 @@ from samtranslator.public.sdk.template import SamTemplate
 from samtranslator.region_configuration import RegionConfiguration
 from samtranslator.utils.constants import BOTO3_CONNECT_TIMEOUT
 from samtranslator.validator.value_validator import sam_expect
+from dataclasses import dataclass, field
 
 LOG = logging.getLogger(__name__)
 
 PLUGIN_METRICS_PREFIX = "Plugin-ServerlessApp"
+
+
+@dataclass
+class _PluginConfig:
+    wait_for_template_active_status: bool = False
+    validate_only: bool = False
+    parameters: dict[str, Any] = field(default_factory=dict)
 
 
 class ServerlessAppPlugin(BasePlugin):
@@ -78,13 +86,15 @@ class ServerlessAppPlugin(BasePlugin):
         self._in_progress_templates: list[tuple[str, str]] = []
         self.__sar_client = sar_client
         self._sar_client_creator = sar_client_creator
-        self._wait_for_template_active_status = wait_for_template_active_status
-        self._validate_only = validate_only
-        self._parameters = parameters
+        self._config = _PluginConfig(
+            wait_for_template_active_status=wait_for_template_active_status,
+            validate_only=validate_only,
+            parameters=parameters,
+        )
         self._total_wait_time = 0
 
         # make sure the flag combination makes sense
-        if self._validate_only is True and self._wait_for_template_active_status is True:
+        if self._config.validate_only is True and self._config.wait_for_template_active_status is True:
             message = "Cannot set both validate_only and wait_for_template_active_status flags to True."
             raise InvalidPluginException(ServerlessAppPlugin.__name__, message)
 
@@ -121,7 +131,7 @@ class ServerlessAppPlugin(BasePlugin):
 
         service_call = None
         service_call = (
-            self._handle_get_application_request if self._validate_only else self._handle_create_cfn_template_request
+            self._handle_get_application_request if self._config.validate_only else self._handle_create_cfn_template_request
         )
         for logical_id, app in template.iterate({SamResourceType.Application.value}):
             if not self._can_process_application(app):  # type: ignore[no-untyped-call]
@@ -191,7 +201,7 @@ class ServerlessAppPlugin(BasePlugin):
 
     def _get_intrinsic_resolvers(self, mappings):  # type: ignore[no-untyped-def]
         return [
-            IntrinsicsResolver(self._parameters),
+            IntrinsicsResolver(self._config.parameters),
             IntrinsicsResolver(mappings, {FindInMapAction.intrinsic_name: FindInMapAction()}),
         ]
 
@@ -328,7 +338,7 @@ class ServerlessAppPlugin(BasePlugin):
             raise self._applications[key]
 
         # validation does not resolve an actual template url
-        if not self._validate_only:
+        if not self._config.validate_only:
             resource_properties[self.TEMPLATE_URL_KEY] = self._applications[key]
 
     def _check_for_dictionary_key(self, logical_id, dictionary, keys):  # type: ignore[no-untyped-def]
@@ -353,7 +363,7 @@ class ServerlessAppPlugin(BasePlugin):
 
         :param dict template: Dictionary of the SAM template
         """
-        if not self._wait_for_template_active_status or self._validate_only:
+        if not self._config.wait_for_template_active_status or self._config.validate_only:
             return
 
         while self._total_wait_time < self.TEMPLATE_WAIT_TIMEOUT_SECONDS:

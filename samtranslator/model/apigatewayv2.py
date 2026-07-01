@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, Union
 
 from samtranslator.model import GeneratedProperty, Resource
@@ -183,6 +184,39 @@ class ApiGatewayV2WSAuthorizer(Resource):
     }
 
 
+@dataclass
+class _JwtConfig:
+    authorization_scopes: Any = None
+    jwt_configuration: Any = None
+    id_source: Any = None
+
+
+@dataclass
+class _LambdaConfig:
+    function_arn: Any = None
+    function_invoke_role: Any = None
+    identity: Any = None
+
+
+@dataclass
+class _ResponseConfig:
+    authorizer_payload_format_version: Any = None
+    enable_simple_responses: Any = None
+    enable_function_default_permissions: Any = None
+
+
+class _AuthorizerProperties:
+    def __init__(  # type: ignore[no-untyped-def]
+        self,
+        jwt_config=None,
+        lambda_config=None,
+        response_config=None,
+    ):
+        self.jwt_config = jwt_config or _JwtConfig()
+        self.lambda_config = lambda_config or _LambdaConfig()
+        self.response_config = response_config or _ResponseConfig()
+
+
 class ApiGatewayV2Authorizer:
     def __init__(  # type: ignore[no-untyped-def] # noqa: PLR0913
         self,
@@ -204,16 +238,24 @@ class ApiGatewayV2Authorizer:
         """
         self.api_logical_id = api_logical_id
         self.name = name
-        self.authorization_scopes = authorization_scopes
-        self.jwt_configuration: JwtConfiguration | None = self._get_jwt_configuration(jwt_configuration, api_logical_id)
-        self.id_source = id_source
-        self.function_arn = function_arn
-        self.function_invoke_role = function_invoke_role
-        self.identity = identity
-        self.authorizer_payload_format_version = authorizer_payload_format_version
-        self.enable_simple_responses = enable_simple_responses
         self.is_aws_iam_authorizer = is_aws_iam_authorizer
-        self.enable_function_default_permissions = enable_function_default_permissions
+        self._props = _AuthorizerProperties(
+            jwt_config=_JwtConfig(
+                authorization_scopes=authorization_scopes,
+                jwt_configuration=self._get_jwt_configuration(jwt_configuration, api_logical_id),
+                id_source=id_source,
+            ),
+            lambda_config=_LambdaConfig(
+                function_arn=function_arn,
+                function_invoke_role=function_invoke_role,
+                identity=identity,
+            ),
+            response_config=_ResponseConfig(
+                authorizer_payload_format_version=authorizer_payload_format_version,
+                enable_simple_responses=enable_simple_responses,
+                enable_function_default_permissions=enable_function_default_permissions,
+            ),
+        )
 
         self._validate_input_parameters()
 
@@ -232,6 +274,42 @@ class ApiGatewayV2Authorizer:
                 api_logical_id,
                 f"Authorizers.{name}.EnableFunctionDefaultPermissions",
             ).to_be_a_bool()
+
+    @property
+    def authorization_scopes(self):
+        return self._props.jwt_config.authorization_scopes
+
+    @property
+    def jwt_configuration(self):
+        return self._props.jwt_config.jwt_configuration
+
+    @property
+    def id_source(self):
+        return self._props.jwt_config.id_source
+
+    @property
+    def function_arn(self):
+        return self._props.lambda_config.function_arn
+
+    @property
+    def function_invoke_role(self):
+        return self._props.lambda_config.function_invoke_role
+
+    @property
+    def identity(self):
+        return self._props.lambda_config.identity
+
+    @property
+    def authorizer_payload_format_version(self):
+        return self._props.response_config.authorizer_payload_format_version
+
+    @property
+    def enable_simple_responses(self):
+        return self._props.response_config.enable_simple_responses
+
+    @property
+    def enable_function_default_permissions(self):
+        return self._props.response_config.enable_function_default_permissions
 
     def _get_auth_type(self) -> str:
         if self.is_aws_iam_authorizer:

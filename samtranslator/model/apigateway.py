@@ -1,6 +1,7 @@
 import json
 import time
 from re import match
+from dataclasses import dataclass
 from typing import Any, Union
 
 from samtranslator.model import GeneratedProperty, Resource
@@ -325,6 +326,14 @@ class ApiGatewayDomainNameAccessAssociation(Resource):
     }
 
 
+@dataclass
+class _FunctionConfig:
+    function_arn: Any = None
+    function_payload_type: str | None = None
+    function_invoke_role: Any = None
+    disable_function_default_permissions: Any = None
+
+
 class ApiGatewayAuthorizer:
     _VALID_FUNCTION_PAYLOAD_TYPES = [None, "TOKEN", "REQUEST"]
 
@@ -347,13 +356,12 @@ class ApiGatewayAuthorizer:
         self.api_logical_id = api_logical_id
         self.name = name
         self.user_pool_arn = user_pool_arn
-        self.function_arn = function_arn
         self.identity = identity
-        self.function_payload_type = function_payload_type
-        self.function_invoke_role = function_invoke_role
+        self.function_config = _FunctionConfig(
+            function_arn, function_payload_type, function_invoke_role, disable_function_default_permissions
+        )
         self.is_aws_iam_authorizer = is_aws_iam_authorizer
         self.authorization_scopes = authorization_scopes
-        self.disable_function_default_permissions = disable_function_default_permissions
 
         if function_payload_type not in ApiGatewayAuthorizer._VALID_FUNCTION_PAYLOAD_TYPES:
             raise InvalidResourceException(
@@ -427,7 +435,7 @@ class ApiGatewayAuthorizer:
                 ArnGenerator.generate_arn(
                     partition=partition, service="apigateway", resource=resource, include_account_id=False
                 ),
-                {"__FunctionArn__": self.function_arn},
+                {"__FunctionArn__": self.function_config.function_arn},
             )
 
             swagger[APIGATEWAY_AUTHORIZER_KEY]["authorizerUri"] = authorizer_uri
@@ -537,10 +545,10 @@ class ApiGatewayAuthorizer:
         return self.identity.get("ReauthorizeEvery")
 
     def _get_function_invoke_role(self) -> PassThrough | None:
-        if not self.function_invoke_role or self.function_invoke_role == "NONE":
+        if not self.function_config.function_invoke_role or self.function_config.function_invoke_role == "NONE":
             return None
 
-        return self.function_invoke_role
+        return self.function_config.function_invoke_role
 
     def _get_swagger_authtype(self) -> str:
         authorizer_type = self._get_type()
@@ -553,7 +561,7 @@ class ApiGatewayAuthorizer:
         return "custom"
 
     def _get_function_payload_type(self) -> str:
-        return "TOKEN" if not self.function_payload_type else self.function_payload_type
+        return "TOKEN" if not self.function_config.function_payload_type else self.function_config.function_payload_type
 
     def _get_swagger_authorizer_type(self) -> str | None:
         authorizer_type = self._get_type()

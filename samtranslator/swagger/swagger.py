@@ -529,27 +529,13 @@ class SwaggerEditor(BaseEditor):
         if "api_key" not in self.security_definitions:
             self.security_definitions.update(api_key_security_definition)
 
-    def set_path_default_authorizer(  # noqa: PLR0912
+    def set_path_default_authorizer(
         self,
         path: str,
         default_authorizer: str,
         authorizers: dict[str, ApiGatewayAuthorizer],
         add_default_auth_to_preflight: bool = True,
     ) -> None:
-        """
-        Adds the default_authorizer to the security block for each method on this path unless an Authorizer
-        was defined at the Function/Path/Method level. This is intended to be used to set the
-        authorizer security restriction for all api methods based upon the default configured in the
-        Serverless API.
-
-        :param string path: Path name
-        :param string default_authorizer: Name of the authorizer to use as the default. Must be a key in the
-            authorizers param.
-        :param list authorizers: List of Authorizer configurations defined on the related Api.
-        :param bool add_default_auth_to_preflight: Bool of whether to add the default
-            authorizer to OPTIONS preflight requests.
-        """
-
         for method_name, method_definition in self.iter_on_all_methods_for_path(path):  # type: ignore[no-untyped-call]
             if not (add_default_auth_to_preflight or method_name != "options"):
                 continue
@@ -558,65 +544,79 @@ class SwaggerEditor(BaseEditor):
             if authorizers:
                 authorizer_list.extend(authorizers.keys())
             authorizer_names = set(authorizer_list)
-            existing_non_authorizer_security = []
-            existing_authorizer_security = []
 
-            # Split existing security into Authorizers and everything else
-            # (e.g. sigv4 (AWS_IAM), api_key (API Key/Usage Plans), NONE (marker for ignoring default))
-            # We want to ensure only a single Authorizer security entry exists while keeping everything else
             existing_security = method_definition.get("security", [])
-            if not isinstance(existing_security, list):
-                raise InvalidDocumentException(
-                    [InvalidTemplateException(f"Type of security for path {path} method {method_name} must be a list")]
+            existing_non_authorizer_security, existing_authorizer_security = (
+                self._validate_and_split_security(
+                    existing_security, authorizer_names, path, method_name
                 )
-            for security in existing_security:
-                SwaggerEditor.validate_is_dict(
-                    security,
-                    f"{security} in Security for path {path} method {method_name} is not a valid dictionary.",
+            )
+
+            authorizer_security, existing_non_authorizer_security = (
+                self._resolve_path_authorizer_security(
+                    existing_non_authorizer_security,
+                    existing_authorizer_security,
+                    default_authorizer,
+                    authorizers,
                 )
-                if authorizer_names.isdisjoint(security.keys()):
-                    existing_non_authorizer_security.append(security)
-                else:
-                    existing_authorizer_security.append(security)
-
-            none_idx = -1
-            authorizer_security = []
-
-            # Check for an existing Authorizer before applying the default. It would be simpler
-            # if instead we applied the DefaultAuthorizer first and then simply
-            # overwrote it if necessary, however, the order in which things get
-            # applied (Function Api Events first; then Api Resource) complicates it.
-            # Check if Function/Path/Method specified 'NONE' for Authorizer
-            for idx, security in enumerate(existing_non_authorizer_security):
-                is_none = any(key == "NONE" for key in security)
-
-                if is_none:
-                    none_idx = idx
-                    break
-
-            # NONE was found; remove it and don't add the DefaultAuthorizer
-            if none_idx > -1:
-                del existing_non_authorizer_security[none_idx]
-
-            # Existing Authorizer found (defined at Function/Path/Method); use that instead of default
-            elif existing_authorizer_security:
-                authorizer_security = existing_authorizer_security
-
-            # No existing Authorizer found; use default
-            else:
-                security_dict = Py27Dict()
-                security_dict[default_authorizer] = self._get_authorization_scopes(authorizers, default_authorizer)
-                authorizer_security = [security_dict]
+            )
 
             security = existing_non_authorizer_security + authorizer_security
 
             if security:
                 method_definition["security"] = security
-
-                # The first element of the method_definition['security'] should be AWS_IAM
-                # because authorizer_list = ['AWS_IAM'] is hardcoded above
                 if "AWS_IAM" in method_definition["security"][0]:
                     self.add_awsiam_security_definition()
+
+    def _validate_and_split_security(
+        self,
+        existing_security: Any,
+        authorizer_names: set,
+        path: str,
+        method_name: str,
+    ) -> tuple[list, list]:
+        if not isinstance(existing_security, list):
+            raise InvalidDocumentException(
+                [InvalidTemplateException(f"Type of security for path {path} method {method_name} must be a list")]
+            )
+        existing_non_authorizer_security = []
+        existing_authorizer_security = []
+        for security in existing_security:
+            SwaggerEditor.validate_is_dict(
+                security,
+                f"{security} in Security for path {path} method {method_name} is not a valid dictionary.",
+            )
+            if authorizer_names.isdisjoint(security.keys()):
+                existing_non_authorizer_security.append(security)
+            else:
+                existing_authorizer_security.append(security)
+        return existing_non_authorizer_security, existing_authorizer_security
+
+    def _resolve_path_authorizer_security(
+        self,
+        existing_non_authorizer_security: list,
+        existing_authorizer_security: list,
+        default_authorizer: str,
+        authorizers: dict[str, ApiGatewayAuthorizer],
+    ) -> tuple[list, list]:
+        none_idx = -1
+        for idx, security in enumerate(existing_non_authorizer_security):
+            is_none = any(key == "NONE" for key in security)
+            if is_none:
+                none_idx = idx
+                break
+
+        authorizer_security = []
+        if none_idx > -1:
+            del existing_non_authorizer_security[none_idx]
+        elif existing_authorizer_security:
+            authorizer_security = existing_authorizer_security
+        else:
+            security_dict = Py27Dict()
+            security_dict[default_authorizer] = self._get_authorization_scopes(authorizers, default_authorizer)
+            authorizer_security = [security_dict]
+
+        return authorizer_security, existing_non_authorizer_security
 
     def set_path_default_apikey_required(self, path: str, required_options_api_key: bool = True) -> None:
         """
@@ -1031,6 +1031,18 @@ class SwaggerEditor(BaseEditor):
             uri_list.extend([resource])
         return uri_list
 
+    def _append_to_resource_policy(self, statements):  # type: ignore[no-untyped-def]
+        if self.resource_policy.get("Statement") is None:
+            self.resource_policy["Statement"] = statements
+        else:
+            existing = self.resource_policy["Statement"]
+            if not isinstance(existing, list):
+                existing = [existing]
+            for s in statements:
+                if s not in existing:
+                    existing.append(s)
+            self.resource_policy["Statement"] = existing
+
     def _add_ip_resource_policy_for_method(self, ip_list, conditional, resource_list):  # type: ignore[no-untyped-def]
         """
         This method generates a policy statement to grant/deny specific IP address ranges access to the API method and
@@ -1062,32 +1074,9 @@ class SwaggerEditor(BaseEditor):
         deny_statement["Principal"] = "*"
         deny_statement["Condition"] = {conditional: {"aws:SourceIp": ip_list}}
 
-        if self.resource_policy.get("Statement") is None:
-            self.resource_policy["Statement"] = [allow_statement, deny_statement]
-        else:
-            statement = self.resource_policy["Statement"]
-            if not isinstance(statement, list):
-                statement = [statement]
-            if allow_statement not in statement:
-                statement.extend([allow_statement])
-            if deny_statement not in statement:
-                statement.extend([deny_statement])
-            self.resource_policy["Statement"] = statement
+        self._append_to_resource_policy([allow_statement, deny_statement])
 
-    def _add_vpc_resource_policy_for_method(  # noqa: PLR0912
-        self, endpoint_dict: dict[str, Any], conditional: str, resource_list: PassThrough
-    ) -> None:
-        """
-        This method generates a policy statement to grant/deny specific VPC/VPCE access to the API method and
-        appends it to the swagger under `x-amazon-apigateway-policy`
-        :raises InvalidDocumentException: If the conditional passed in does not match the allowed values.
-        """
-
-        if conditional not in ["StringNotEquals", "StringEquals"]:
-            raise InvalidDocumentException(
-                [InvalidTemplateException("Conditional must be one of {}".format(["StringNotEquals", "StringEquals"]))]
-            )
-
+    def _process_endpoint_dict(self, endpoint_dict):  # type: ignore[no-untyped-def]
         condition = Py27Dict()
         string_endpoint_list = endpoint_dict.get("StringEndpointList")
         intrinsic_vpc_endpoint_list = endpoint_dict.get("IntrinsicVpcList")
@@ -1112,7 +1101,24 @@ class SwaggerEditor(BaseEditor):
         if intrinsic_vpce_endpoint_list is not None:
             condition.setdefault("aws:SourceVpce", []).extend(intrinsic_vpce_endpoint_list)  # type: ignore[no-untyped-call]
 
-        # Skip writing to transformed template if both vpc and vpce endpoint lists are empty
+        return condition
+
+    def _add_vpc_resource_policy_for_method(
+        self, endpoint_dict: dict[str, Any], conditional: str, resource_list: PassThrough
+    ) -> None:
+        """
+        This method generates a policy statement to grant/deny specific VPC/VPCE access to the API method and
+        appends it to the swagger under `x-amazon-apigateway-policy`
+        :raises InvalidDocumentException: If the conditional passed in does not match the allowed values.
+        """
+
+        if conditional not in ["StringNotEquals", "StringEquals"]:
+            raise InvalidDocumentException(
+                [InvalidTemplateException("Conditional must be one of {}".format(["StringNotEquals", "StringEquals"]))]
+            )
+
+        condition = self._process_endpoint_dict(endpoint_dict)
+
         if (not condition.get("aws:SourceVpc", [])) and (not condition.get("aws:SourceVpce", [])):
             return
 
@@ -1130,17 +1136,7 @@ class SwaggerEditor(BaseEditor):
         deny_statement["Principal"] = "*"
         deny_statement["Condition"] = {conditional: condition}
 
-        if self.resource_policy.get("Statement") is None:
-            self.resource_policy["Statement"] = [allow_statement, deny_statement]
-        else:
-            statement = self.resource_policy["Statement"]
-            if not isinstance(statement, list):
-                statement = [statement]
-            if allow_statement not in statement:
-                statement.extend([allow_statement])
-            if deny_statement not in statement:
-                statement.extend([deny_statement])
-            self.resource_policy["Statement"] = statement
+        self._append_to_resource_policy([allow_statement, deny_statement])
 
     def _add_custom_statement(self, custom_statements):  # type: ignore[no-untyped-def]
         if custom_statements is None:
@@ -1152,15 +1148,7 @@ class SwaggerEditor(BaseEditor):
         else:
             if not isinstance(custom_statements, list):
                 custom_statements = [custom_statements]
-
-            statement = self.resource_policy["Statement"]
-            if not isinstance(statement, list):
-                statement = [statement]
-
-            for s in custom_statements:
-                if s not in statement:
-                    statement.append(s)
-            self.resource_policy["Statement"] = statement
+            self._append_to_resource_policy(custom_statements)
 
     def add_request_parameters_to_method(self, path, method_name, request_parameters):  # type: ignore[no-untyped-def]
         """
