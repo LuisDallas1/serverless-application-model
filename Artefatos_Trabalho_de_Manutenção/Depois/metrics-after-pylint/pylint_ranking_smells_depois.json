@@ -1,0 +1,34 @@
+[
+  {
+    "simbolo": "too-few-public-methods",
+    "ocorrencias": 37
+  },
+  {
+    "simbolo": "too-many-arguments",
+    "ocorrencias": 30
+  },
+  {
+    "simbolo": "too-many-positional-arguments",
+    "ocorrencias": 30
+  },
+  {
+    "simbolo": "duplicate-code",
+    "ocorrencias": 29
+  },
+  {
+    "simbolo": "too-many-locals",
+    "ocorrencias": 16
+  },
+  {
+    "simbolo": "too-many-public-methods",
+    "ocorrencias": 1
+  },
+  {
+    "simbolo": "use-dict-literal",
+    "ocorrencias": 1
+  },
+  {
+    "simbolo": "too-many-nested-blocks",
+    "ocorrencias": 1
+  }
+]

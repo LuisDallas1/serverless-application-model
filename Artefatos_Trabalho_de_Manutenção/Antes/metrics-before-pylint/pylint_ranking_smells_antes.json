@@ -1,0 +1,46 @@
+[
+  {
+    "simbolo": "too-few-public-methods",
+    "ocorrencias": 38
+  },
+  {
+    "simbolo": "duplicate-code",
+    "ocorrencias": 30
+  },
+  {
+    "simbolo": "too-many-arguments",
+    "ocorrencias": 27
+  },
+  {
+    "simbolo": "too-many-positional-arguments",
+    "ocorrencias": 27
+  },
+  {
+    "simbolo": "too-many-locals",
+    "ocorrencias": 24
+  },
+  {
+    "simbolo": "too-many-branches",
+    "ocorrencias": 14
+  },
+  {
+    "simbolo": "too-many-instance-attributes",
+    "ocorrencias": 11
+  },
+  {
+    "simbolo": "too-many-statements",
+    "ocorrencias": 7
+  },
+  {
+    "simbolo": "too-many-nested-blocks",
+    "ocorrencias": 3
+  },
+  {
+    "simbolo": "too-many-public-methods",
+    "ocorrencias": 1
+  },
+  {
+    "simbolo": "use-dict-literal",
+    "ocorrencias": 1
+  }
+]

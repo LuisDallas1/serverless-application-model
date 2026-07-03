@@ -1,0 +1,721 @@
+[
+  {
+    "arquivo": "samtranslator\\model\\sam_resources.py",
+    "convention": 370,
+    "total": 411,
+    "warning": 13,
+    "refactor": 19,
+    "error": 9
+  },
+  {
+    "arquivo": "samtranslator\\model\\eventsources\\push.py",
+    "convention": 189,
+    "total": 211,
+    "warning": 11,
+    "refactor": 11
+  },
+  {
+    "arquivo": "samtranslator\\model\\api\\api_generator.py",
+    "convention": 175,
+    "total": 184,
+    "warning": 4,
+    "refactor": 5
+  },
+  {
+    "arquivo": "samtranslator\\swagger\\swagger.py",
+    "convention": 135,
+    "total": 144,
+    "warning": 1,
+    "refactor": 8
+  },
+  {
+    "arquivo": "samtranslator\\model\\__init__.py",
+    "convention": 102,
+    "total": 115,
+    "warning": 6,
+    "refactor": 6,
+    "error": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_function.py",
+    "convention": 106,
+    "total": 113,
+    "warning": 7
+  },
+  {
+    "arquivo": "samtranslator\\model\\eventsources\\pull.py",
+    "convention": 87,
+    "total": 88,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\intrinsics\\actions.py",
+    "convention": 81,
+    "total": 81
+  },
+  {
+    "arquivo": "samtranslator\\model\\api\\websocket_api_generator.py",
+    "convention": 71,
+    "total": 77,
+    "refactor": 6
+  },
+  {
+    "arquivo": "samtranslator\\open_api\\open_api.py",
+    "convention": 62,
+    "total": 72,
+    "warning": 5,
+    "refactor": 5
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\api\\implicit_api_plugin.py",
+    "convention": 66,
+    "total": 71,
+    "warning": 1,
+    "refactor": 4
+  },
+  {
+    "arquivo": "samtranslator\\model\\api\\http_api_generator.py",
+    "convention": 56,
+    "total": 61,
+    "refactor": 4,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\apigateway.py",
+    "convention": 46,
+    "total": 54,
+    "warning": 2,
+    "refactor": 6
+  },
+  {
+    "arquivo": "samtranslator\\intrinsics\\resolver.py",
+    "convention": 53,
+    "total": 53
+  },
+  {
+    "arquivo": "samtranslator\\translator\\translator.py",
+    "convention": 46,
+    "total": 51,
+    "refactor": 5
+  },
+  {
+    "arquivo": "samtranslator\\model\\stepfunctions\\generators.py",
+    "convention": 45,
+    "total": 47,
+    "warning": 1,
+    "refactor": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\api\\apiv2_generator.py",
+    "convention": 43,
+    "total": 46,
+    "refactor": 3
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\application\\serverless_app_plugin.py",
+    "convention": 37,
+    "total": 43,
+    "warning": 6
+  },
+  {
+    "arquivo": "samtranslator\\utils\\py27hash_fix.py",
+    "convention": 36,
+    "total": 43,
+    "warning": 5,
+    "refactor": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\apigatewayv2.py",
+    "convention": 35,
+    "total": 38,
+    "refactor": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\preferences\\deployment_preference_collection.py",
+    "convention": 36,
+    "total": 37,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_api.py",
+    "convention": 30,
+    "total": 33,
+    "warning": 3
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_graphqlapi.py",
+    "convention": 28,
+    "total": 33,
+    "warning": 5
+  },
+  {
+    "arquivo": "samtranslator\\model\\stepfunctions\\events.py",
+    "convention": 28,
+    "total": 33,
+    "warning": 5
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\globals\\globals.py",
+    "convention": 29,
+    "total": 33,
+    "warning": 2,
+    "refactor": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\iam.py",
+    "convention": 29,
+    "total": 29
+  },
+  {
+    "arquivo": "samtranslator\\model\\types.py",
+    "convention": 26,
+    "total": 29,
+    "warning": 3
+  },
+  {
+    "arquivo": "samtranslator\\validator\\sam_schema\\definitions\\__init__.py",
+    "refactor": 29,
+    "total": 29
+  },
+  {
+    "arquivo": "samtranslator\\model\\intrinsics.py",
+    "convention": 28,
+    "total": 28
+  },
+  {
+    "arquivo": "samtranslator\\model\\eventsources\\scheduler.py",
+    "convention": 27,
+    "total": 27
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_statemachine.py",
+    "convention": 26,
+    "total": 26
+  },
+  {
+    "arquivo": "samtranslator\\feature_toggle\\feature_toggle.py",
+    "convention": 13,
+    "total": 25,
+    "warning": 7,
+    "refactor": 5
+  },
+  {
+    "arquivo": "samtranslator\\internal\\model\\appsync.py",
+    "convention": 24,
+    "total": 24
+  },
+  {
+    "arquivo": "samtranslator\\open_api\\base_editor.py",
+    "convention": 23,
+    "total": 24,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\api\\implicit_http_api_plugin.py",
+    "convention": 20,
+    "total": 24,
+    "warning": 2,
+    "refactor": 2
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_capacity_provider.py",
+    "convention": 23,
+    "total": 23
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\sam_plugins.py",
+    "convention": 21,
+    "total": 21
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\api\\implicit_rest_api_plugin.py",
+    "convention": 18,
+    "total": 20,
+    "refactor": 2
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\__init__.py",
+    "convention": 19,
+    "total": 19
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_httpapi.py",
+    "convention": 15,
+    "total": 18,
+    "warning": 3
+  },
+  {
+    "arquivo": "samtranslator\\metrics\\metrics.py",
+    "convention": 10,
+    "total": 18,
+    "refactor": 5,
+    "warning": 3
+  },
+  {
+    "arquivo": "samtranslator\\sdk\\resource.py",
+    "convention": 15,
+    "total": 18,
+    "warning": 3
+  },
+  {
+    "arquivo": "samtranslator\\policy_template_processor\\template.py",
+    "convention": 17,
+    "total": 17
+  },
+  {
+    "arquivo": "samtranslator\\model\\role_utils\\role_constructor.py",
+    "convention": 12,
+    "total": 16,
+    "refactor": 3,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\capacity_provider\\generators.py",
+    "convention": 15,
+    "total": 16,
+    "refactor": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\preferences\\deployment_preference.py",
+    "convention": 14,
+    "total": 15,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_websocketapi.py",
+    "convention": 13,
+    "total": 14,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\eventbridge_utils.py",
+    "convention": 14,
+    "total": 14
+  },
+  {
+    "arquivo": "samtranslator\\model\\resource_policies.py",
+    "convention": 14,
+    "total": 14
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\schema.py",
+    "convention": 11,
+    "total": 13,
+    "warning": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\exceptions.py",
+    "convention": 11,
+    "total": 13,
+    "warning": 2
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\policies\\policy_templates_plugin.py",
+    "convention": 13,
+    "total": 13
+  },
+  {
+    "arquivo": "samtranslator\\policy_template_processor\\processor.py",
+    "convention": 13,
+    "total": 13
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\common.py",
+    "convention": 10,
+    "total": 12,
+    "warning": 1,
+    "refactor": 1
+  },
+  {
+    "arquivo": "samtranslator\\metrics\\method_decorator.py",
+    "convention": 11,
+    "total": 12,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\translator\\logical_id_generator.py",
+    "convention": 11,
+    "total": 11
+  },
+  {
+    "arquivo": "samtranslator\\model\\lambda_.py",
+    "convention": 10,
+    "total": 10
+  },
+  {
+    "arquivo": "samtranslator\\model\\eventsources\\cloudwatchlogs.py",
+    "convention": 10,
+    "total": 10
+  },
+  {
+    "arquivo": "samtranslator\\model\\connector\\connector.py",
+    "convention": 9,
+    "total": 10,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\validator\\validator.py",
+    "convention": 8,
+    "total": 10,
+    "warning": 2
+  },
+  {
+    "arquivo": "samtranslator\\parser\\parser.py",
+    "convention": 9,
+    "total": 9
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_connector.py",
+    "warning": 1,
+    "total": 8,
+    "convention": 7
+  },
+  {
+    "arquivo": "samtranslator\\intrinsics\\resource_refs.py",
+    "convention": 8,
+    "total": 8
+  },
+  {
+    "arquivo": "samtranslator\\model\\update_policy.py",
+    "convention": 8,
+    "total": 8
+  },
+  {
+    "arquivo": "samtranslator\\translator\\arn_generator.py",
+    "convention": 8,
+    "total": 8
+  },
+  {
+    "arquivo": "samtranslator\\utils\\actions.py",
+    "convention": 6,
+    "total": 8,
+    "refactor": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\sqs.py",
+    "convention": 7,
+    "total": 7
+  },
+  {
+    "arquivo": "samtranslator\\model\\s3_utils\\uri_parser.py",
+    "convention": 7,
+    "total": 7
+  },
+  {
+    "arquivo": "samtranslator\\feature_toggle\\dialup.py",
+    "convention": 2,
+    "total": 6,
+    "warning": 1,
+    "refactor": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\stepfunctions\\resources.py",
+    "convention": 6,
+    "total": 6
+  },
+  {
+    "arquivo": "samtranslator\\translator\\managed_policy_translator.py",
+    "convention": 5,
+    "total": 6,
+    "refactor": 1
+  },
+  {
+    "arquivo": "samtranslator\\validator\\value_validator.py",
+    "convention": 6,
+    "total": 6
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_layerversion.py",
+    "convention": 5,
+    "total": 5
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_simpletable.py",
+    "convention": 5,
+    "total": 5
+  },
+  {
+    "arquivo": "samtranslator\\model\\naming.py",
+    "convention": 5,
+    "total": 5
+  },
+  {
+    "arquivo": "samtranslator\\utils\\traverse.py",
+    "convention": 5,
+    "total": 5
+  },
+  {
+    "arquivo": "samtranslator\\region_configuration.py",
+    "convention": 4,
+    "total": 4
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\aws_serverless_application.py",
+    "convention": 4,
+    "total": 4
+  },
+  {
+    "arquivo": "samtranslator\\model\\sns.py",
+    "convention": 4,
+    "total": 4
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\globals\\globals_plugin.py",
+    "convention": 4,
+    "total": 4
+  },
+  {
+    "arquivo": "samtranslator\\yaml_helper.py",
+    "convention": 2,
+    "total": 3,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\managed_policies.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\cloudformation.py",
+    "warning": 1,
+    "total": 3,
+    "convention": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\codedeploy.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\events.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\iot.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\log.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\s3.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\model\\connector_profiles\\profile.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\api\\default_definition_body_plugin.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\sdk\\parameter.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\sdk\\template.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\utils\\cfn_dynamic_references.py",
+    "convention": 3,
+    "total": 3
+  },
+  {
+    "arquivo": "samtranslator\\compat.py",
+    "convention": 1,
+    "total": 2,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\deprecation_control.py",
+    "convention": 1,
+    "total": 2,
+    "warning": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\schema_source\\any_cfn_resource.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\cognito.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\dynamodb.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\route53.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\scheduler.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\xray_utils.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\model\\stepfunctions\\__init__.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\plugins\\exceptions.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\public\\exceptions.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\public\\translator.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\translator\\transform.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\utils\\utils.py",
+    "convention": 2,
+    "total": 2
+  },
+  {
+    "arquivo": "samtranslator\\__init__.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\intrinsics.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\types.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\internal\\utils\\utils.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\packagetype.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\cfn_attributes\\deletion_policy.py",
+    "refactor": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\eventsources\\__init__.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\role_utils\\__init__.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\model\\tags\\resource_tagging.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\policy_templates_data\\__init__.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\policy_template_processor\\exceptions.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\intrinsics.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\models.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\open_api.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\parser.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\plugins.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\swagger.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\__init__.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\sdk\\parameter.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\sdk\\resource.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\public\\sdk\\template.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\translator\\verify_logical_id.py",
+    "convention": 1,
+    "total": 1
+  },
+  {
+    "arquivo": "samtranslator\\validator\\sam_schema\\__init__.py",
+    "convention": 1,
+    "total": 1
+  }
+]

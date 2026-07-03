@@ -1,0 +1,1487 @@
+{
+  "samtranslator\\compat.py": {
+    "loc": 15,
+    "lloc": 8,
+    "sloc": 8,
+    "comments": 8,
+    "multi": 0,
+    "blank": 2,
+    "single_comments": 5
+  },
+  "samtranslator\\region_configuration.py": {
+    "loc": 53,
+    "lloc": 23,
+    "sloc": 20,
+    "comments": 5,
+    "multi": 18,
+    "blank": 11,
+    "single_comments": 4
+  },
+  "samtranslator\\yaml_helper.py": {
+    "loc": 48,
+    "lloc": 24,
+    "sloc": 20,
+    "comments": 13,
+    "multi": 4,
+    "blank": 13,
+    "single_comments": 11
+  },
+  "samtranslator\\__init__.py": {
+    "loc": 1,
+    "lloc": 1,
+    "sloc": 1,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\feature_toggle\\dialup.py": {
+    "loc": 75,
+    "lloc": 41,
+    "sloc": 33,
+    "comments": 5,
+    "multi": 22,
+    "blank": 19,
+    "single_comments": 1
+  },
+  "samtranslator\\feature_toggle\\feature_toggle.py": {
+    "loc": 166,
+    "lloc": 95,
+    "sloc": 111,
+    "comments": 7,
+    "multi": 16,
+    "blank": 31,
+    "single_comments": 8
+  },
+  "samtranslator\\feature_toggle\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\deprecation_control.py": {
+    "loc": 52,
+    "lloc": 20,
+    "sloc": 20,
+    "comments": 6,
+    "multi": 14,
+    "blank": 15,
+    "single_comments": 3
+  },
+  "samtranslator\\internal\\intrinsics.py": {
+    "loc": 23,
+    "lloc": 11,
+    "sloc": 18,
+    "comments": 0,
+    "multi": 0,
+    "blank": 4,
+    "single_comments": 1
+  },
+  "samtranslator\\internal\\managed_policies.py": {
+    "loc": 9,
+    "lloc": 7,
+    "sloc": 6,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\types.py": {
+    "loc": 4,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 1,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 1
+  },
+  "samtranslator\\internal\\__init__.py": {
+    "loc": 6,
+    "lloc": 1,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 5,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\model\\appsync.py": {
+    "loc": 295,
+    "lloc": 257,
+    "sloc": 229,
+    "comments": 3,
+    "multi": 0,
+    "blank": 63,
+    "single_comments": 3
+  },
+  "samtranslator\\internal\\model\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\schema_source\\any_cfn_resource.py": {
+    "loc": 9,
+    "lloc": 6,
+    "sloc": 5,
+    "comments": 2,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 1
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_api.py": {
+    "loc": 435,
+    "lloc": 342,
+    "sloc": 393,
+    "comments": 4,
+    "multi": 0,
+    "blank": 42,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_application.py": {
+    "loc": 47,
+    "lloc": 27,
+    "sloc": 37,
+    "comments": 0,
+    "multi": 0,
+    "blank": 10,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_capacity_provider.py": {
+    "loc": 138,
+    "lloc": 76,
+    "sloc": 68,
+    "comments": 37,
+    "multi": 0,
+    "blank": 33,
+    "single_comments": 37
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_connector.py": {
+    "loc": 50,
+    "lloc": 47,
+    "sloc": 35,
+    "comments": 1,
+    "multi": 0,
+    "blank": 14,
+    "single_comments": 1
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_function.py": {
+    "loc": 849,
+    "lloc": 851,
+    "sloc": 717,
+    "comments": 11,
+    "multi": 0,
+    "blank": 126,
+    "single_comments": 6
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_graphqlapi.py": {
+    "loc": 201,
+    "lloc": 224,
+    "sloc": 139,
+    "comments": 20,
+    "multi": 0,
+    "blank": 48,
+    "single_comments": 14
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_httpapi.py": {
+    "loc": 140,
+    "lloc": 171,
+    "sloc": 110,
+    "comments": 3,
+    "multi": 0,
+    "blank": 27,
+    "single_comments": 3
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_layerversion.py": {
+    "loc": 72,
+    "lloc": 39,
+    "sloc": 60,
+    "comments": 0,
+    "multi": 0,
+    "blank": 12,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_simpletable.py": {
+    "loc": 73,
+    "lloc": 37,
+    "sloc": 59,
+    "comments": 0,
+    "multi": 0,
+    "blank": 14,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_statemachine.py": {
+    "loc": 187,
+    "lloc": 225,
+    "sloc": 148,
+    "comments": 0,
+    "multi": 0,
+    "blank": 39,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_websocketapi.py": {
+    "loc": 115,
+    "lloc": 140,
+    "sloc": 88,
+    "comments": 1,
+    "multi": 5,
+    "blank": 21,
+    "single_comments": 1
+  },
+  "samtranslator\\internal\\schema_source\\common.py": {
+    "loc": 100,
+    "lloc": 56,
+    "sloc": 59,
+    "comments": 17,
+    "multi": 4,
+    "blank": 24,
+    "single_comments": 13
+  },
+  "samtranslator\\internal\\schema_source\\schema.py": {
+    "loc": 196,
+    "lloc": 102,
+    "sloc": 125,
+    "comments": 15,
+    "multi": 13,
+    "blank": 45,
+    "single_comments": 13
+  },
+  "samtranslator\\internal\\schema_source\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\internal\\utils\\utils.py": {
+    "loc": 22,
+    "lloc": 10,
+    "sloc": 7,
+    "comments": 0,
+    "multi": 7,
+    "blank": 7,
+    "single_comments": 1
+  },
+  "samtranslator\\internal\\utils\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\intrinsics\\actions.py": {
+    "loc": 625,
+    "lloc": 211,
+    "sloc": 211,
+    "comments": 53,
+    "multi": 210,
+    "blank": 156,
+    "single_comments": 48
+  },
+  "samtranslator\\intrinsics\\resolver.py": {
+    "loc": 252,
+    "lloc": 68,
+    "sloc": 83,
+    "comments": 22,
+    "multi": 104,
+    "blank": 43,
+    "single_comments": 22
+  },
+  "samtranslator\\intrinsics\\resource_refs.py": {
+    "loc": 77,
+    "lloc": 31,
+    "sloc": 25,
+    "comments": 7,
+    "multi": 30,
+    "blank": 19,
+    "single_comments": 3
+  },
+  "samtranslator\\intrinsics\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\metrics\\method_decorator.py": {
+    "loc": 126,
+    "lloc": 61,
+    "sloc": 57,
+    "comments": 7,
+    "multi": 38,
+    "blank": 31,
+    "single_comments": 0
+  },
+  "samtranslator\\metrics\\metrics.py": {
+    "loc": 229,
+    "lloc": 101,
+    "sloc": 118,
+    "comments": 9,
+    "multi": 65,
+    "blank": 39,
+    "single_comments": 7
+  },
+  "samtranslator\\metrics\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\apigateway.py": {
+    "loc": 572,
+    "lloc": 342,
+    "sloc": 436,
+    "comments": 26,
+    "multi": 9,
+    "blank": 106,
+    "single_comments": 21
+  },
+  "samtranslator\\model\\apigatewayv2.py": {
+    "loc": 444,
+    "lloc": 185,
+    "sloc": 301,
+    "comments": 16,
+    "multi": 54,
+    "blank": 76,
+    "single_comments": 13
+  },
+  "samtranslator\\model\\architecture.py": {
+    "loc": 6,
+    "lloc": 3,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 3,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\cloudformation.py": {
+    "loc": 16,
+    "lloc": 8,
+    "sloc": 12,
+    "comments": 1,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 1
+  },
+  "samtranslator\\model\\codedeploy.py": {
+    "loc": 28,
+    "lloc": 14,
+    "sloc": 22,
+    "comments": 0,
+    "multi": 0,
+    "blank": 6,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\cognito.py": {
+    "loc": 44,
+    "lloc": 8,
+    "sloc": 41,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\dynamodb.py": {
+    "loc": 25,
+    "lloc": 8,
+    "sloc": 22,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\eventbridge_utils.py": {
+    "loc": 59,
+    "lloc": 38,
+    "sloc": 49,
+    "comments": 7,
+    "multi": 0,
+    "blank": 8,
+    "single_comments": 2
+  },
+  "samtranslator\\model\\events.py": {
+    "loc": 37,
+    "lloc": 18,
+    "sloc": 22,
+    "comments": 2,
+    "multi": 3,
+    "blank": 9,
+    "single_comments": 3
+  },
+  "samtranslator\\model\\exceptions.py": {
+    "loc": 197,
+    "lloc": 109,
+    "sloc": 115,
+    "comments": 8,
+    "multi": 29,
+    "blank": 45,
+    "single_comments": 8
+  },
+  "samtranslator\\model\\iam.py": {
+    "loc": 168,
+    "lloc": 71,
+    "sloc": 142,
+    "comments": 1,
+    "multi": 4,
+    "blank": 22,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\intrinsics.py": {
+    "loc": 232,
+    "lloc": 118,
+    "sloc": 96,
+    "comments": 8,
+    "multi": 65,
+    "blank": 63,
+    "single_comments": 8
+  },
+  "samtranslator\\model\\iot.py": {
+    "loc": 12,
+    "lloc": 8,
+    "sloc": 9,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\lambda_.py": {
+    "loc": 199,
+    "lloc": 122,
+    "sloc": 172,
+    "comments": 0,
+    "multi": 0,
+    "blank": 26,
+    "single_comments": 1
+  },
+  "samtranslator\\model\\log.py": {
+    "loc": 13,
+    "lloc": 8,
+    "sloc": 10,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\naming.py": {
+    "loc": 14,
+    "lloc": 8,
+    "sloc": 7,
+    "comments": 0,
+    "multi": 5,
+    "blank": 2,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\packagetype.py": {
+    "loc": 2,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\resource_policies.py": {
+    "loc": 205,
+    "lloc": 76,
+    "sloc": 84,
+    "comments": 23,
+    "multi": 58,
+    "blank": 52,
+    "single_comments": 11
+  },
+  "samtranslator\\model\\route53.py": {
+    "loc": 17,
+    "lloc": 13,
+    "sloc": 13,
+    "comments": 0,
+    "multi": 0,
+    "blank": 4,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\s3.py": {
+    "loc": 30,
+    "lloc": 8,
+    "sloc": 27,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\sam_resources.py": {
+    "loc": 3613,
+    "lloc": 1831,
+    "sloc": 2643,
+    "comments": 189,
+    "multi": 292,
+    "blank": 514,
+    "single_comments": 164
+  },
+  "samtranslator\\model\\scheduler.py": {
+    "loc": 36,
+    "lloc": 32,
+    "sloc": 31,
+    "comments": 0,
+    "multi": 0,
+    "blank": 5,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\sns.py": {
+    "loc": 32,
+    "lloc": 16,
+    "sloc": 26,
+    "comments": 0,
+    "multi": 0,
+    "blank": 6,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\sqs.py": {
+    "loc": 58,
+    "lloc": 26,
+    "sloc": 50,
+    "comments": 2,
+    "multi": 0,
+    "blank": 8,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\types.py": {
+    "loc": 186,
+    "lloc": 93,
+    "sloc": 88,
+    "comments": 13,
+    "multi": 44,
+    "blank": 46,
+    "single_comments": 8
+  },
+  "samtranslator\\model\\update_policy.py": {
+    "loc": 36,
+    "lloc": 13,
+    "sloc": 17,
+    "comments": 2,
+    "multi": 14,
+    "blank": 5,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\xray_utils.py": {
+    "loc": 10,
+    "lloc": 6,
+    "sloc": 6,
+    "comments": 2,
+    "multi": 0,
+    "blank": 2,
+    "single_comments": 2
+  },
+  "samtranslator\\model\\__init__.py": {
+    "loc": 896,
+    "lloc": 393,
+    "sloc": 403,
+    "comments": 82,
+    "multi": 233,
+    "blank": 184,
+    "single_comments": 76
+  },
+  "samtranslator\\model\\api\\apiv2_generator.py": {
+    "loc": 303,
+    "lloc": 180,
+    "sloc": 241,
+    "comments": 9,
+    "multi": 19,
+    "blank": 38,
+    "single_comments": 5
+  },
+  "samtranslator\\model\\api\\api_generator.py": {
+    "loc": 1606,
+    "lloc": 875,
+    "sloc": 1183,
+    "comments": 105,
+    "multi": 119,
+    "blank": 224,
+    "single_comments": 80
+  },
+  "samtranslator\\model\\api\\http_api_generator.py": {
+    "loc": 554,
+    "lloc": 243,
+    "sloc": 381,
+    "comments": 35,
+    "multi": 63,
+    "blank": 80,
+    "single_comments": 30
+  },
+  "samtranslator\\model\\api\\websocket_api_generator.py": {
+    "loc": 409,
+    "lloc": 227,
+    "sloc": 316,
+    "comments": 29,
+    "multi": 30,
+    "blank": 37,
+    "single_comments": 26
+  },
+  "samtranslator\\model\\api\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\capacity_provider\\generators.py": {
+    "loc": 235,
+    "lloc": 120,
+    "sloc": 116,
+    "comments": 23,
+    "multi": 48,
+    "blank": 49,
+    "single_comments": 22
+  },
+  "samtranslator\\model\\capacity_provider\\resources.py": {
+    "loc": 41,
+    "lloc": 28,
+    "sloc": 28,
+    "comments": 0,
+    "multi": 6,
+    "blank": 7,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\capacity_provider\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\cfn_attributes\\deletion_policy.py": {
+    "loc": 10,
+    "lloc": 5,
+    "sloc": 3,
+    "comments": 0,
+    "multi": 3,
+    "blank": 3,
+    "single_comments": 1
+  },
+  "samtranslator\\model\\cfn_attributes\\__init__.py": {
+    "loc": 1,
+    "lloc": 1,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 1
+  },
+  "samtranslator\\model\\connector\\connector.py": {
+    "loc": 252,
+    "lloc": 110,
+    "sloc": 170,
+    "comments": 14,
+    "multi": 12,
+    "blank": 56,
+    "single_comments": 14
+  },
+  "samtranslator\\model\\connector\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\connector_profiles\\profile.py": {
+    "loc": 83,
+    "lloc": 59,
+    "sloc": 50,
+    "comments": 9,
+    "multi": 9,
+    "blank": 18,
+    "single_comments": 6
+  },
+  "samtranslator\\model\\connector_profiles\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\eventsources\\cloudwatchlogs.py": {
+    "loc": 62,
+    "lloc": 40,
+    "sloc": 41,
+    "comments": 4,
+    "multi": 6,
+    "blank": 14,
+    "single_comments": 1
+  },
+  "samtranslator\\model\\eventsources\\pull.py": {
+    "loc": 922,
+    "lloc": 495,
+    "sloc": 711,
+    "comments": 34,
+    "multi": 52,
+    "blank": 132,
+    "single_comments": 27
+  },
+  "samtranslator\\model\\eventsources\\push.py": {
+    "loc": 1606,
+    "lloc": 875,
+    "sloc": 1099,
+    "comments": 168,
+    "multi": 121,
+    "blank": 294,
+    "single_comments": 92
+  },
+  "samtranslator\\model\\eventsources\\scheduler.py": {
+    "loc": 244,
+    "lloc": 148,
+    "sloc": 160,
+    "comments": 26,
+    "multi": 21,
+    "blank": 39,
+    "single_comments": 24
+  },
+  "samtranslator\\model\\eventsources\\__init__.py": {
+    "loc": 1,
+    "lloc": 1,
+    "sloc": 1,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\preferences\\deployment_preference.py": {
+    "loc": 96,
+    "lloc": 26,
+    "sloc": 50,
+    "comments": 1,
+    "multi": 36,
+    "blank": 10,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\preferences\\deployment_preference_collection.py": {
+    "loc": 338,
+    "lloc": 163,
+    "sloc": 197,
+    "comments": 23,
+    "multi": 81,
+    "blank": 54,
+    "single_comments": 6
+  },
+  "samtranslator\\model\\preferences\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\role_utils\\role_constructor.py": {
+    "loc": 196,
+    "lloc": 75,
+    "sloc": 112,
+    "comments": 18,
+    "multi": 39,
+    "blank": 29,
+    "single_comments": 16
+  },
+  "samtranslator\\model\\role_utils\\__init__.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\s3_utils\\uri_parser.py": {
+    "loc": 126,
+    "lloc": 58,
+    "sloc": 66,
+    "comments": 12,
+    "multi": 26,
+    "blank": 24,
+    "single_comments": 10
+  },
+  "samtranslator\\model\\s3_utils\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\stepfunctions\\events.py": {
+    "loc": 481,
+    "lloc": 250,
+    "sloc": 294,
+    "comments": 29,
+    "multi": 80,
+    "blank": 95,
+    "single_comments": 12
+  },
+  "samtranslator\\model\\stepfunctions\\generators.py": {
+    "loc": 417,
+    "lloc": 213,
+    "sloc": 268,
+    "comments": 22,
+    "multi": 85,
+    "blank": 54,
+    "single_comments": 10
+  },
+  "samtranslator\\model\\stepfunctions\\resources.py": {
+    "loc": 52,
+    "lloc": 41,
+    "sloc": 40,
+    "comments": 0,
+    "multi": 0,
+    "blank": 12,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\stepfunctions\\__init__.py": {
+    "loc": 11,
+    "lloc": 4,
+    "sloc": 10,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\model\\tags\\resource_tagging.py": {
+    "loc": 36,
+    "lloc": 13,
+    "sloc": 11,
+    "comments": 2,
+    "multi": 15,
+    "blank": 9,
+    "single_comments": 1
+  },
+  "samtranslator\\model\\tags\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\open_api\\base_editor.py": {
+    "loc": 262,
+    "lloc": 124,
+    "sloc": 122,
+    "comments": 5,
+    "multi": 88,
+    "blank": 46,
+    "single_comments": 6
+  },
+  "samtranslator\\open_api\\open_api.py": {
+    "loc": 575,
+    "lloc": 278,
+    "sloc": 329,
+    "comments": 45,
+    "multi": 131,
+    "blank": 81,
+    "single_comments": 34
+  },
+  "samtranslator\\open_api\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\parser\\parser.py": {
+    "loc": 67,
+    "lloc": 32,
+    "sloc": 46,
+    "comments": 8,
+    "multi": 4,
+    "blank": 12,
+    "single_comments": 5
+  },
+  "samtranslator\\parser\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\plugins\\exceptions.py": {
+    "loc": 15,
+    "lloc": 8,
+    "sloc": 7,
+    "comments": 0,
+    "multi": 5,
+    "blank": 3,
+    "single_comments": 0
+  },
+  "samtranslator\\plugins\\sam_plugins.py": {
+    "loc": 144,
+    "lloc": 51,
+    "sloc": 43,
+    "comments": 3,
+    "multi": 63,
+    "blank": 37,
+    "single_comments": 1
+  },
+  "samtranslator\\plugins\\__init__.py": {
+    "loc": 103,
+    "lloc": 30,
+    "sloc": 23,
+    "comments": 9,
+    "multi": 52,
+    "blank": 22,
+    "single_comments": 6
+  },
+  "samtranslator\\plugins\\api\\default_definition_body_plugin.py": {
+    "loc": 42,
+    "lloc": 23,
+    "sloc": 21,
+    "comments": 2,
+    "multi": 12,
+    "blank": 8,
+    "single_comments": 1
+  },
+  "samtranslator\\plugins\\api\\implicit_api_plugin.py": {
+    "loc": 502,
+    "lloc": 242,
+    "sloc": 262,
+    "comments": 83,
+    "multi": 106,
+    "blank": 75,
+    "single_comments": 59
+  },
+  "samtranslator\\plugins\\api\\implicit_http_api_plugin.py": {
+    "loc": 159,
+    "lloc": 70,
+    "sloc": 83,
+    "comments": 12,
+    "multi": 40,
+    "blank": 30,
+    "single_comments": 6
+  },
+  "samtranslator\\plugins\\api\\implicit_rest_api_plugin.py": {
+    "loc": 116,
+    "lloc": 41,
+    "sloc": 57,
+    "comments": 8,
+    "multi": 33,
+    "blank": 25,
+    "single_comments": 1
+  },
+  "samtranslator\\plugins\\api\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\plugins\\application\\serverless_app_plugin.py": {
+    "loc": 464,
+    "lloc": 238,
+    "sloc": 272,
+    "comments": 58,
+    "multi": 93,
+    "blank": 77,
+    "single_comments": 22
+  },
+  "samtranslator\\plugins\\application\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\plugins\\globals\\globals.py": {
+    "loc": 567,
+    "lloc": 146,
+    "sloc": 276,
+    "comments": 36,
+    "multi": 178,
+    "blank": 100,
+    "single_comments": 13
+  },
+  "samtranslator\\plugins\\globals\\globals_plugin.py": {
+    "loc": 47,
+    "lloc": 26,
+    "sloc": 26,
+    "comments": 4,
+    "multi": 8,
+    "blank": 9,
+    "single_comments": 4
+  },
+  "samtranslator\\plugins\\globals\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\plugins\\policies\\policy_templates_plugin.py": {
+    "loc": 113,
+    "lloc": 55,
+    "sloc": 60,
+    "comments": 18,
+    "multi": 22,
+    "blank": 23,
+    "single_comments": 8
+  },
+  "samtranslator\\plugins\\policies\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\policy_templates_data\\__init__.py": {
+    "loc": 9,
+    "lloc": 4,
+    "sloc": 4,
+    "comments": 2,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 2
+  },
+  "samtranslator\\policy_template_processor\\exceptions.py": {
+    "loc": 25,
+    "lloc": 12,
+    "sloc": 9,
+    "comments": 3,
+    "multi": 9,
+    "blank": 7,
+    "single_comments": 0
+  },
+  "samtranslator\\policy_template_processor\\processor.py": {
+    "loc": 157,
+    "lloc": 53,
+    "sloc": 44,
+    "comments": 8,
+    "multi": 75,
+    "blank": 35,
+    "single_comments": 3
+  },
+  "samtranslator\\policy_template_processor\\template.py": {
+    "loc": 137,
+    "lloc": 53,
+    "sloc": 49,
+    "comments": 12,
+    "multi": 58,
+    "blank": 25,
+    "single_comments": 5
+  },
+  "samtranslator\\policy_template_processor\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\exceptions.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\intrinsics.py": {
+    "loc": 4,
+    "lloc": 3,
+    "sloc": 3,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\models.py": {
+    "loc": 3,
+    "lloc": 3,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\open_api.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\parser.py": {
+    "loc": 3,
+    "lloc": 3,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\plugins.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\swagger.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\translator.py": {
+    "loc": 8,
+    "lloc": 3,
+    "sloc": 3,
+    "comments": 3,
+    "multi": 0,
+    "blank": 2,
+    "single_comments": 3
+  },
+  "samtranslator\\public\\__init__.py": {
+    "loc": 5,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 5,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 5
+  },
+  "samtranslator\\public\\sdk\\parameter.py": {
+    "loc": 3,
+    "lloc": 3,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\sdk\\resource.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\sdk\\template.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 2,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 0
+  },
+  "samtranslator\\public\\sdk\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\sdk\\parameter.py": {
+    "loc": 84,
+    "lloc": 29,
+    "sloc": 25,
+    "comments": 0,
+    "multi": 35,
+    "blank": 24,
+    "single_comments": 0
+  },
+  "samtranslator\\sdk\\resource.py": {
+    "loc": 83,
+    "lloc": 44,
+    "sloc": 37,
+    "comments": 8,
+    "multi": 21,
+    "blank": 18,
+    "single_comments": 7
+  },
+  "samtranslator\\sdk\\template.py": {
+    "loc": 94,
+    "lloc": 43,
+    "sloc": 34,
+    "comments": 1,
+    "multi": 37,
+    "blank": 23,
+    "single_comments": 0
+  },
+  "samtranslator\\sdk\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\swagger\\swagger.py": {
+    "loc": 1305,
+    "lloc": 702,
+    "sloc": 757,
+    "comments": 164,
+    "multi": 220,
+    "blank": 221,
+    "single_comments": 107
+  },
+  "samtranslator\\swagger\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\third_party\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\third_party\\py27hash\\hash.py": {
+    "loc": 173,
+    "lloc": 69,
+    "sloc": 61,
+    "comments": 17,
+    "multi": 55,
+    "blank": 51,
+    "single_comments": 6
+  },
+  "samtranslator\\third_party\\py27hash\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\translator\\arn_generator.py": {
+    "loc": 150,
+    "lloc": 47,
+    "sloc": 62,
+    "comments": 8,
+    "multi": 51,
+    "blank": 31,
+    "single_comments": 6
+  },
+  "samtranslator\\translator\\logical_id_generator.py": {
+    "loc": 85,
+    "lloc": 34,
+    "sloc": 28,
+    "comments": 4,
+    "multi": 31,
+    "blank": 23,
+    "single_comments": 3
+  },
+  "samtranslator\\translator\\managed_policy_translator.py": {
+    "loc": 40,
+    "lloc": 27,
+    "sloc": 24,
+    "comments": 6,
+    "multi": 0,
+    "blank": 10,
+    "single_comments": 6
+  },
+  "samtranslator\\translator\\transform.py": {
+    "loc": 44,
+    "lloc": 17,
+    "sloc": 31,
+    "comments": 0,
+    "multi": 6,
+    "blank": 7,
+    "single_comments": 0
+  },
+  "samtranslator\\translator\\translator.py": {
+    "loc": 468,
+    "lloc": 247,
+    "sloc": 317,
+    "comments": 26,
+    "multi": 62,
+    "blank": 66,
+    "single_comments": 23
+  },
+  "samtranslator\\translator\\verify_logical_id.py": {
+    "loc": 36,
+    "lloc": 9,
+    "sloc": 28,
+    "comments": 3,
+    "multi": 0,
+    "blank": 5,
+    "single_comments": 3
+  },
+  "samtranslator\\translator\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\utils\\actions.py": {
+    "loc": 60,
+    "lloc": 29,
+    "sloc": 25,
+    "comments": 5,
+    "multi": 19,
+    "blank": 11,
+    "single_comments": 5
+  },
+  "samtranslator\\utils\\cfn_dynamic_references.py": {
+    "loc": 15,
+    "lloc": 6,
+    "sloc": 5,
+    "comments": 0,
+    "multi": 6,
+    "blank": 4,
+    "single_comments": 0
+  },
+  "samtranslator\\utils\\constants.py": {
+    "loc": 3,
+    "lloc": 2,
+    "sloc": 1,
+    "comments": 0,
+    "multi": 0,
+    "blank": 1,
+    "single_comments": 1
+  },
+  "samtranslator\\utils\\py27hash_fix.py": {
+    "loc": 661,
+    "lloc": 347,
+    "sloc": 324,
+    "comments": 113,
+    "multi": 162,
+    "blank": 126,
+    "single_comments": 49
+  },
+  "samtranslator\\utils\\traverse.py": {
+    "loc": 67,
+    "lloc": 21,
+    "sloc": 27,
+    "comments": 1,
+    "multi": 22,
+    "blank": 17,
+    "single_comments": 1
+  },
+  "samtranslator\\utils\\types.py": {
+    "loc": 7,
+    "lloc": 4,
+    "sloc": 3,
+    "comments": 0,
+    "multi": 0,
+    "blank": 3,
+    "single_comments": 1
+  },
+  "samtranslator\\utils\\utils.py": {
+    "loc": 73,
+    "lloc": 49,
+    "sloc": 43,
+    "comments": 1,
+    "multi": 14,
+    "blank": 15,
+    "single_comments": 1
+  },
+  "samtranslator\\utils\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\validator\\validator.py": {
+    "loc": 260,
+    "lloc": 76,
+    "sloc": 88,
+    "comments": 33,
+    "multi": 113,
+    "blank": 41,
+    "single_comments": 18
+  },
+  "samtranslator\\validator\\value_validator.py": {
+    "loc": 132,
+    "lloc": 71,
+    "sloc": 79,
+    "comments": 6,
+    "multi": 28,
+    "blank": 20,
+    "single_comments": 5
+  },
+  "samtranslator\\validator\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  },
+  "samtranslator\\validator\\sam_schema\\__init__.py": {
+    "loc": 8,
+    "lloc": 4,
+    "sloc": 4,
+    "comments": 2,
+    "multi": 0,
+    "blank": 2,
+    "single_comments": 2
+  },
+  "samtranslator\\validator\\sam_schema\\definitions\\__init__.py": {
+    "loc": 0,
+    "lloc": 0,
+    "sloc": 0,
+    "comments": 0,
+    "multi": 0,
+    "blank": 0,
+    "single_comments": 0
+  }
+}

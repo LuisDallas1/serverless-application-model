@@ -1,0 +1,662 @@
+{
+  "samtranslator\\compat.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\region_configuration.py": {
+    "mi": 79.07206820797711,
+    "rank": "A"
+  },
+  "samtranslator\\yaml_helper.py": {
+    "mi": 85.44803874808709,
+    "rank": "A"
+  },
+  "samtranslator\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\feature_toggle\\dialup.py": {
+    "mi": 82.90629250114945,
+    "rank": "A"
+  },
+  "samtranslator\\feature_toggle\\feature_toggle.py": {
+    "mi": 63.32893974341204,
+    "rank": "A"
+  },
+  "samtranslator\\feature_toggle\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\deprecation_control.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\intrinsics.py": {
+    "mi": 66.9244833780622,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\managed_policies.py": {
+    "mi": 73.42025566233474,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\types.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\model\\appsync.py": {
+    "mi": 35.42048134024998,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\model\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\any_cfn_resource.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_api.py": {
+    "mi": 26.780548714614632,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_application.py": {
+    "mi": 58.977522136210844,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_capacity_provider.py": {
+    "mi": 70.90197984268507,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_connector.py": {
+    "mi": 60.51890102010411,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_function.py": {
+    "mi": 16.7923518088754,
+    "rank": "B"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_graphqlapi.py": {
+    "mi": 48.1224854940584,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_httpapi.py": {
+    "mi": 39.75935928934833,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_layerversion.py": {
+    "mi": 52.57396518523486,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_simpletable.py": {
+    "mi": 51.97316931546561,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_statemachine.py": {
+    "mi": 27.12048045275588,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\aws_serverless_websocketapi.py": {
+    "mi": 48.02709137534659,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\common.py": {
+    "mi": 75.94025699045838,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\schema.py": {
+    "mi": 63.41801718477836,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\schema_source\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\utils\\utils.py": {
+    "mi": 98.683493941902,
+    "rank": "A"
+  },
+  "samtranslator\\internal\\utils\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\intrinsics\\actions.py": {
+    "mi": 40.221543413804234,
+    "rank": "A"
+  },
+  "samtranslator\\intrinsics\\resolver.py": {
+    "mi": 56.603267232898204,
+    "rank": "A"
+  },
+  "samtranslator\\intrinsics\\resource_refs.py": {
+    "mi": 69.41745604205296,
+    "rank": "A"
+  },
+  "samtranslator\\intrinsics\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\metrics\\method_decorator.py": {
+    "mi": 76.58354539135128,
+    "rank": "A"
+  },
+  "samtranslator\\metrics\\metrics.py": {
+    "mi": 73.61204788367827,
+    "rank": "A"
+  },
+  "samtranslator\\metrics\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\apigateway.py": {
+    "mi": 26.01575433669534,
+    "rank": "A"
+  },
+  "samtranslator\\model\\apigatewayv2.py": {
+    "mi": 43.64462331643045,
+    "rank": "A"
+  },
+  "samtranslator\\model\\architecture.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\cloudformation.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\codedeploy.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\cognito.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\dynamodb.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\eventbridge_utils.py": {
+    "mi": 68.14444831047385,
+    "rank": "A"
+  },
+  "samtranslator\\model\\events.py": {
+    "mi": 84.54484842717103,
+    "rank": "A"
+  },
+  "samtranslator\\model\\exceptions.py": {
+    "mi": 64.98062241158172,
+    "rank": "A"
+  },
+  "samtranslator\\model\\iam.py": {
+    "mi": 56.18449053999075,
+    "rank": "A"
+  },
+  "samtranslator\\model\\intrinsics.py": {
+    "mi": 60.79485258530074,
+    "rank": "A"
+  },
+  "samtranslator\\model\\iot.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\lambda_.py": {
+    "mi": 35.25439366730143,
+    "rank": "A"
+  },
+  "samtranslator\\model\\log.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\naming.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\packagetype.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\resource_policies.py": {
+    "mi": 65.56773449460633,
+    "rank": "A"
+  },
+  "samtranslator\\model\\route53.py": {
+    "mi": 66.32268037675387,
+    "rank": "A"
+  },
+  "samtranslator\\model\\s3.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\sam_resources.py": {
+    "mi": 0.0,
+    "rank": "C"
+  },
+  "samtranslator\\model\\scheduler.py": {
+    "mi": 55.96741670538224,
+    "rank": "A"
+  },
+  "samtranslator\\model\\sns.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\sqs.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\types.py": {
+    "mi": 75.39518373315899,
+    "rank": "A"
+  },
+  "samtranslator\\model\\update_policy.py": {
+    "mi": 91.46754252145291,
+    "rank": "A"
+  },
+  "samtranslator\\model\\xray_utils.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\__init__.py": {
+    "mi": 29.067286120938146,
+    "rank": "A"
+  },
+  "samtranslator\\model\\api\\apiv2_generator.py": {
+    "mi": 36.46122359131314,
+    "rank": "A"
+  },
+  "samtranslator\\model\\api\\api_generator.py": {
+    "mi": 0.0,
+    "rank": "C"
+  },
+  "samtranslator\\model\\api\\http_api_generator.py": {
+    "mi": 39.071504925090025,
+    "rank": "A"
+  },
+  "samtranslator\\model\\api\\websocket_api_generator.py": {
+    "mi": 40.18346495961919,
+    "rank": "A"
+  },
+  "samtranslator\\model\\api\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\capacity_provider\\generators.py": {
+    "mi": 60.651409695384785,
+    "rank": "A"
+  },
+  "samtranslator\\model\\capacity_provider\\resources.py": {
+    "mi": 80.10631196751348,
+    "rank": "A"
+  },
+  "samtranslator\\model\\capacity_provider\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\cfn_attributes\\deletion_policy.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\cfn_attributes\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\connector\\connector.py": {
+    "mi": 54.25264673420497,
+    "rank": "A"
+  },
+  "samtranslator\\model\\connector\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\connector_profiles\\profile.py": {
+    "mi": 71.77508334962812,
+    "rank": "A"
+  },
+  "samtranslator\\model\\connector_profiles\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\eventsources\\cloudwatchlogs.py": {
+    "mi": 87.23860056626937,
+    "rank": "A"
+  },
+  "samtranslator\\model\\eventsources\\pull.py": {
+    "mi": 13.977067609549096,
+    "rank": "B"
+  },
+  "samtranslator\\model\\eventsources\\push.py": {
+    "mi": 1.801057656387615,
+    "rank": "C"
+  },
+  "samtranslator\\model\\eventsources\\scheduler.py": {
+    "mi": 56.6393742211259,
+    "rank": "A"
+  },
+  "samtranslator\\model\\eventsources\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\preferences\\deployment_preference.py": {
+    "mi": 84.9364884805284,
+    "rank": "A"
+  },
+  "samtranslator\\model\\preferences\\deployment_preference_collection.py": {
+    "mi": 53.98454886887726,
+    "rank": "A"
+  },
+  "samtranslator\\model\\preferences\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\role_utils\\role_constructor.py": {
+    "mi": 69.52177430215562,
+    "rank": "A"
+  },
+  "samtranslator\\model\\role_utils\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\s3_utils\\uri_parser.py": {
+    "mi": 71.42068088935444,
+    "rank": "A"
+  },
+  "samtranslator\\model\\s3_utils\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\stepfunctions\\events.py": {
+    "mi": 49.04015562920521,
+    "rank": "A"
+  },
+  "samtranslator\\model\\stepfunctions\\generators.py": {
+    "mi": 35.60774691239887,
+    "rank": "A"
+  },
+  "samtranslator\\model\\stepfunctions\\resources.py": {
+    "mi": 51.15350853018977,
+    "rank": "A"
+  },
+  "samtranslator\\model\\stepfunctions\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\model\\tags\\resource_tagging.py": {
+    "mi": 82.82391561264264,
+    "rank": "A"
+  },
+  "samtranslator\\model\\tags\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\open_api\\base_editor.py": {
+    "mi": 59.10105119362398,
+    "rank": "A"
+  },
+  "samtranslator\\open_api\\open_api.py": {
+    "mi": 41.20612064008622,
+    "rank": "A"
+  },
+  "samtranslator\\open_api\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\parser\\parser.py": {
+    "mi": 78.40483048071398,
+    "rank": "A"
+  },
+  "samtranslator\\parser\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\exceptions.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\sam_plugins.py": {
+    "mi": 61.526998111459136,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\__init__.py": {
+    "mi": 55.212494460852824,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\api\\default_definition_body_plugin.py": {
+    "mi": 87.47794216052125,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\api\\implicit_api_plugin.py": {
+    "mi": 44.41389268092696,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\api\\implicit_http_api_plugin.py": {
+    "mi": 75.05463075920824,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\api\\implicit_rest_api_plugin.py": {
+    "mi": 90.50183508122419,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\api\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\application\\serverless_app_plugin.py": {
+    "mi": 47.473501546786615,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\application\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\globals\\globals.py": {
+    "mi": 54.92473156474904,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\globals\\globals_plugin.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\globals\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\policies\\policy_templates_plugin.py": {
+    "mi": 77.97808848808413,
+    "rank": "A"
+  },
+  "samtranslator\\plugins\\policies\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\policy_templates_data\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\policy_template_processor\\exceptions.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\policy_template_processor\\processor.py": {
+    "mi": 60.35344037189704,
+    "rank": "A"
+  },
+  "samtranslator\\policy_template_processor\\template.py": {
+    "mi": 63.771264994900605,
+    "rank": "A"
+  },
+  "samtranslator\\policy_template_processor\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\exceptions.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\intrinsics.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\models.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\open_api.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\parser.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\plugins.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\swagger.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\translator.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\sdk\\parameter.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\sdk\\resource.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\sdk\\template.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\public\\sdk\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\sdk\\parameter.py": {
+    "mi": 70.10296340700867,
+    "rank": "A"
+  },
+  "samtranslator\\sdk\\resource.py": {
+    "mi": 79.12645324387479,
+    "rank": "A"
+  },
+  "samtranslator\\sdk\\template.py": {
+    "mi": 72.87729832135189,
+    "rank": "A"
+  },
+  "samtranslator\\sdk\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\swagger\\swagger.py": {
+    "mi": 11.583420194946513,
+    "rank": "B"
+  },
+  "samtranslator\\swagger\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\third_party\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\third_party\\py27hash\\hash.py": {
+    "mi": 61.17305402251317,
+    "rank": "A"
+  },
+  "samtranslator\\third_party\\py27hash\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\arn_generator.py": {
+    "mi": 73.43247293415577,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\logical_id_generator.py": {
+    "mi": 84.75081254228324,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\managed_policy_translator.py": {
+    "mi": 84.65580182849199,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\transform.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\translator.py": {
+    "mi": 43.93730648069288,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\verify_logical_id.py": {
+    "mi": 83.98698522537046,
+    "rank": "A"
+  },
+  "samtranslator\\translator\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\actions.py": {
+    "mi": 78.62601414366162,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\cfn_dynamic_references.py": {
+    "mi": 95.9472081828696,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\constants.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\py27hash_fix.py": {
+    "mi": 26.962951056793862,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\traverse.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\types.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\utils.py": {
+    "mi": 74.8109735388203,
+    "rank": "A"
+  },
+  "samtranslator\\utils\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\validator\\validator.py": {
+    "mi": 53.020069408102046,
+    "rank": "A"
+  },
+  "samtranslator\\validator\\value_validator.py": {
+    "mi": 73.29485812945883,
+    "rank": "A"
+  },
+  "samtranslator\\validator\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\validator\\sam_schema\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  },
+  "samtranslator\\validator\\sam_schema\\definitions\\__init__.py": {
+    "mi": 100.0,
+    "rank": "A"
+  }
+}
